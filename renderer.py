@@ -95,8 +95,8 @@ def load_note_images() -> dict[str, pyglet.image.AbstractImage]:
     for variant, filename in config.NOTE_IMAGE_FILES.items():
         img = pyglet.resource.image(filename)
         img.anchor_x = img.width // 2
-        if filename == "hold.png":
-            img.anchor_y = 150
+        if variant in ("hold", "hold_each"):
+            img.anchor_y = 129.5633
         else:
             img.anchor_y = img.height // 2
         images[variant] = img

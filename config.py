@@ -3,14 +3,18 @@ import math
 
 WIDTH = 1080
 HEIGHT = 1080
-
+SCREEN_RADIUS = WIDTH / 2
 FPS = 60
 
 # Radius of the judgment ring (where notes are hit) in pixels.
-RING_RADIUS = 480
+RING_RADIUS = SCREEN_RADIUS * 8/9
 
 # Radius at which notes first spawn (edge of the approach path).
-SPAWN_RADIUS = 120
+SPAWN_RADIUS = SCREEN_RADIUS * 2/9
+A_SENSOR_RADIUS = SCREEN_RADIUS * 40/54
+B_SENSOR_RADIUS = SCREEN_RADIUS * 22/54
+D_SENSOR_RADIUS = SCREEN_RADIUS * 41/54
+# E_SENSOR_RADIUS
 
 # How many seconds before a note's hit time it should first appear on screen.
 APPROACH_TIME = (RING_RADIUS - SPAWN_RADIUS) / ((107.25 / (71.4184491 * (8 + 0.9975)**-0.985558604))*FPS) # d / v = t
