@@ -63,14 +63,17 @@ def _dip_through_center(start_pos: int, end_pos: int, samples: int) -> list[tupl
     points = first_leg + second_leg
     return _with_tangent_angles(points)
 
-def _arc(start_pos: int, end_pos: int, samples: int, long_way: bool) -> list[tuple[float, float]]:
+def _arc(start_pos: int, end_pos: int, samples: int, default: bool) -> list[tuple[float, float]]:
     start_angle = config.lane_angle(start_pos)
     end_angle = config.lane_angle(end_pos)
     diff = (end_angle - start_angle) % (2 * math.pi)
-    if long_way and diff < math.pi:
-        diff -= 2 * math.pi
-    elif not long_way and diff > math.pi:
-        diff -= 2 * math.pi
+
+    if start_pos not in (3,4,5,6):
+        if not default:
+            diff -= 2 * math.pi
+    else:
+        if default:
+            diff -= 2 * math.pi
 
     points = []
     for i in range(samples):
@@ -80,9 +83,13 @@ def _arc(start_pos: int, end_pos: int, samples: int, long_way: bool) -> list[tup
         points.append((x, y))
     return points
 
-@register_shape("<", ">")
-def _arc_short(start_pos, end_pos, samples: int) -> list[tuple[float, float, float]]:
-    return _with_tangent_angles(_arc(start_pos, end_pos, samples, long_way=False))
+@register_shape("<")
+def _arc_left(start_pos, end_pos, samples: int) -> list[tuple[float, float, float]]:
+    return _with_tangent_angles(_arc(start_pos, end_pos, samples, default=True))
+
+@register_shape(">")
+def _arc_right(start_pos, end_pos, samples: int) -> list[tuple[float, float, float]]:
+    return _with_tangent_angles(_arc(start_pos, end_pos, samples, default=False))
 
 def _segment(start_pos: int, end_pos: int, shape: str, samples: int) -> list[tuple[float, float, float]]:
     handler = SHAPE_HANDLERS.get(shape, _straight)
@@ -106,7 +113,7 @@ def build_path(start_position: int, waypoints: list[int], shape: str) -> list[tu
 # a = build_path(1,[4],"-")
 # print(a)
 
-start_angle = config.lane_angle(1)
-end_angle = config.lane_angle(2)
+start_angle = config.lane_angle(5)
+end_angle = config.lane_angle(4)
 diff = (end_angle - start_angle) % (2 * math.pi)
 print(diff)
