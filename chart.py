@@ -22,6 +22,7 @@ class Note:
     slide_time: Optional[float] = None
     slide_shape: Optional[str] = None
     slide_waypoints: Optional[list[int]] = None
+    is_slide_each: bool = False
 
     @property
     def end_time(self) -> float:
@@ -60,7 +61,12 @@ def load_chart(path: str) -> Chart:
     notes: list[Note] = []
     for entry in data["timingList"]:
         time = entry["Timing"]
-        is_each = len(entry["Notes"]) > 1
+        is_each = False
+        is_slide_each = False
+        if len(entry["Notes"]) > 1:
+            is_each = True
+            if entry["Notes"][0]["Type"] == 1 and entry["Notes"][1]["Type"] == 1:
+                is_slide_each = True
         for n in entry["Notes"]:
             slide_shape, slide_waypoints = (
                 _parse_slide_shape(n["RawContent"]) if n["Type"] == 1 else (None, None)
@@ -78,6 +84,7 @@ def load_chart(path: str) -> Chart:
                     slide_time=n.get("SlideTime"),
                     slide_shape=slide_shape,
                     slide_waypoints=slide_waypoints,
+                    is_slide_each = is_slide_each
                 )
             )
 

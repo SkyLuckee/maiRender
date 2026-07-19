@@ -43,11 +43,11 @@ def _sample_at_distance(path, lengths, dist: float) -> tuple[float, float, float
     y = y0 + (y1 - y0) * frac
     return x, y, angle
 
-def _arrow_placements(path, spacing: float):
+def _slide_placements(path, spacing: float):
     """Evenly-spaced (x, y, angle) triples along `path`, `spacing` pixels apart.
 
     Stops before placing one that would land closer than half a spacing to
-    the endpoint, so the last arrow never crowds the slide's end.
+    the endpoint, so the last slide never crowds the slide's end.
     """
     lengths = _cumulative_lengths(path)
     total = lengths[-1]
@@ -60,15 +60,15 @@ def _arrow_placements(path, spacing: float):
     return placements, total
 
 class _SlideBody:
-    """A chain of arrow sprites tracing one slide's path, revealed progressively."""
+    """A chain of slide sprites tracing one slide's path, revealed progressively."""
     def __init__(self, note, image, batch):
         self.path = build_path(note.position, note.slide_waypoints or [], note.slide_shape or "-")
-        placements, self.total_length = _arrow_placements(self.path, config.ARROW_SPACING)
+        placements, self.total_length = _slide_placements(self.path, config.SLIDE_SPACING)
         self.sprites = []
-        self.distances = [i * config.ARROW_SPACING for i in range(len(placements))]
+        self.distances = [i * config.SLIDE_SPACING for i in range(len(placements))]
         for x, y, angle in placements:
             sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch)
-            # sprite.scale = config.ARROW_SIZE / image.width
+            # sprite.scale = config.SLIDE_SIZE / image.width
             sprite.rotation = angle
             self.sprites.append(sprite)
         self._consumed = 0
@@ -78,7 +78,7 @@ class _SlideBody:
         return _point_along_path(self.path, progress)
 
     def consume(self, progress: float) -> None:
-        """Destroy arrows the star has already passed, in order."""
+        """Destroy slides the star has already passed, in order."""
         covered = progress * self.total_length
         while self._consumed < len(self.sprites) and self.distances[self._consumed] <= covered:
             self.sprites[self._consumed].delete()
@@ -94,7 +94,11 @@ def load_note_images() -> dict[str, pyglet.image.AbstractImage]:
     images = {}
     for variant, filename in config.NOTE_IMAGE_FILES.items():
         img = pyglet.resource.image(filename)
-        img.anchor_x = img.width // 2
+        if variant in ("slide", "slide_each"):
+            img.anchor_x = img.width // 2 - 9
+        else:
+            img.anchor_x = img.width // 2
+
         if variant in ("hold", "hold_each"):
             img.anchor_y = 129.5633
         else:
@@ -142,7 +146,7 @@ class NoteRenderer:
 
             if note.type == 1 and note.slide_shape is not None:
                 if idx not in self._slide_bodies and t >= note.time:
-                    self._slide_bodies[idx] = _SlideBody(note, self.images["arrow"], self.batch)
+                    self._slide_bodies[idx] = _SlideBody(note,  self.images["slide_each"] if (note.is_slide_each) else self.images["slide"], self.batch)
             
             if is_moving_slide:
                 body = self._slide_bodies[idx]

@@ -29,7 +29,7 @@ ASSET_DIR = "assets"
 
 # Misc
 RING_SIZE = 980
-ARROW_SPACING = 0.098017 * RING_RADIUS
+SLIDE_SPACING = 0.098017 * RING_RADIUS
 
 NOTE_IMAGE_FILES = {
     "tap": "tap.png",
@@ -41,7 +41,8 @@ NOTE_IMAGE_FILES = {
     "star": "star.png",
     "star_break": "star_break.png",
     "star_each": "star_each.png",
-    "arrow": "arrow.png"
+    "slide": "slide.png",
+    "slide_each": "slide_each.png"
 }
 
 _TYPE_NAMES = {0: "tap", 1: "star", 2: "hold"}
