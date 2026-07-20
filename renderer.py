@@ -10,19 +10,6 @@ def _face_center_rotation(position: int) -> float:
     """Sprite rotation (degrees, clockwise) facing inward."""
     return 90 - math.degrees(config.lane_angle(position))
 
-def _point_along_path(path, progress: float) -> tuple[float, float]:
-    """Interpolate a point along `path` at fraction `progress` (0-1)."""
-    progress = max(0.0, min(1.0, progress))
-    scaled = progress * (len(path) - 1)
-    i = int(scaled)
-    if i >= len(path) - 1:
-        x, y, _ = path[-1]
-        return x, y
-    frac = scaled - i
-    x0, y0, _ = path[i]
-    x1, y1, _ = path[i + 1]
-    return x0 + (x1 - x0) * frac, y0 + (y1 - y0) * frac
-
 def _cumulative_lengths(path) -> list[float]:
     """Running arc-length total up to each point in `path`."""
     lengths = [0.0]
@@ -43,13 +30,12 @@ def _sample_at_distance(path, lengths, dist: float) -> tuple[float, float, float
     y = y0 + (y1 - y0) * frac
     return x, y, angle
 
-def _slide_placements(path, spacing: float):
+def _slide_placements(path, lengths, spacing: float):
     """Evenly-spaced (x, y, angle) triples along `path`, `spacing` pixels apart.
 
     Stops before placing one that would land closer than half a spacing to
     the endpoint, so the last slide never crowds the slide's end.
     """
-    lengths = _cumulative_lengths(path)
     total = lengths[-1]
     placements = []
     dist = 0.0
@@ -57,26 +43,31 @@ def _slide_placements(path, spacing: float):
         placements.append(_sample_at_distance(path, lengths, dist))
         dist += spacing
     # print(placements)
-    return placements, total
+    return placements
 
 class _SlideBody:
     """A chain of slide sprites tracing one slide's path, revealed progressively."""
     def __init__(self, note, image, batch):
         self.path = build_path(note.position, note.slide_waypoints or [], note.slide_shape or "-")
-        placements, self.total_length = _slide_placements(self.path, config.SLIDE_SPACING)
+        self.lengths = _cumulative_lengths(self.path)
+        self.total_length = self.lengths[-1]
+        placements = _slide_placements(self.path, self.lengths, config.SLIDE_SPACING)
         self.sprites = []
         self.distances = [i * config.SLIDE_SPACING for i in range(len(placements))]
         for x, y, angle in placements:
             sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch)
-            # sprite.scale = config.SLIDE_SIZE / image.width
             sprite.rotation = angle
             self.sprites.append(sprite)
         self._consumed = 0
     
     def head_position(self, progress: float) -> tuple[float, float]:
-        """Where the star should sit along the path at slide-progress `progress`."""
-        return _point_along_path(self.path, progress)
-
+        """... Uses the same arc-length model (self.lengths / self.total_length)
+        as consume() and the arrow placements, so the star and the arrows
+        can never disagree about how far "progress" has gotten."""
+        dist = max(0.0, min(1.0, progress)) * self.total_length
+        x, y, _ = _sample_at_distance(self.path, self.lengths, dist)
+        return x, y
+    
     def consume(self, progress: float) -> None:
         """Destroy slides the star has already passed, in order."""
         covered = progress * self.total_length
@@ -131,7 +122,6 @@ class NoteRenderer:
 
             sprite = pyglet.sprite.Sprite(image, batch=self.batch)
             sprite.rotation = _face_center_rotation(note.position)
-            # sprite.scale = config.NOTE_SIZE / image.width
             self._active[self._next_index] = (note, sprite)
             self._next_index += 1
 

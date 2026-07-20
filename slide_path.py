@@ -9,7 +9,7 @@ import math
 
 import config
 
-SAMPLES_PER_SEGMENT = 10
+SAMPLES_PER_SEGMENT = 64
 SHAPE_HANDLERS = {}
 
 def register_shape(*chars):
@@ -53,16 +53,30 @@ def _line_points(p0, p1, n):
     x1, y1 = p1
     return [(x0 + (x1 - x0) * i / (n - 1), y0 + (y1 - y0) * i / (n - 1)) for i in range(n)]
 
-@register_shape("-","V")
-def _straight(start_pos: int, end_pos: int, samples: int) -> list[tuple[float, float]]:
+@register_shape("-")
+def _straight_slide(start_pos: int, end_pos: int, samples: int) -> list[tuple[float, float]]:
     sx, sy = config.lane_xy(start_pos, config.RING_RADIUS)
     ex, ey = config.lane_xy(end_pos, config.RING_RADIUS)
     points = _line_points((sx,sy), (ex,ey), samples)
     return _with_tangent_angles(points)
 
+def _V_slide(start_position: int, middle_position: int, end_position: int, samples: int) -> list[tuple[float, float]]:
+    """V slide: exactly three positions -- start, middle, end -- forming
+    exactly two straight legs (start->middle, middle->end)."""
+    sx, sy = config.lane_xy(start_position, config.RING_RADIUS)
+    mx, my = config.lane_xy(middle_position, config.RING_RADIUS)
+    ex, ey = config.lane_xy(end_position, config.RING_RADIUS)
+
+    half = samples // 2
+    first_leg = _line_points((sx, sy), (mx, my), half + 1)
+    second_leg = _line_points((mx, my), (ex, ey), samples - half)[1:]  # drop duplicate corner
+    
+    points = first_leg + second_leg
+    return _with_tangent_angles(points)
+
 @register_shape("v")
-def _dip_through_center(start_pos: int, end_pos: int, samples: int) -> list[tuple[float, float]]:
-    """2 slide: start to center and center to end"""
+def _v_slide(start_pos: int, end_pos: int, samples: int) -> list[tuple[float, float]]:
+    """v slide: start to center and center to end"""
     sx, sy = config.lane_xy(start_pos, config.RING_RADIUS)
     ex, ey = config.lane_xy(end_pos, config.RING_RADIUS)
     center = (config.CENTER_X, config.CENTER_Y)
@@ -72,16 +86,16 @@ def _dip_through_center(start_pos: int, end_pos: int, samples: int) -> list[tupl
     points = first_leg + second_leg
     return _with_tangent_angles(points)
 
-def _arc(start_pos: int, end_pos: int, samples: int, default: bool) -> list[tuple[float, float]]:
+def _arc(start_pos: int, end_pos: int, samples: int, CCW: bool) -> list[tuple[float, float]]:
     start_angle = config.lane_angle(start_pos)
     end_angle = config.lane_angle(end_pos)
     diff = (end_angle - start_angle) % (2 * math.pi)
 
     if start_pos not in (3,4,5,6):
-        if not default:
+        if not CCW:
             diff -= 2 * math.pi
     else:
-        if default:
+        if CCW:
             diff -= 2 * math.pi
 
     points = []
@@ -94,14 +108,41 @@ def _arc(start_pos: int, end_pos: int, samples: int, default: bool) -> list[tupl
 
 @register_shape("<")
 def _arc_left(start_pos, end_pos, samples: int) -> list[tuple[float, float, float]]:
-    return _arc(start_pos, end_pos, samples, default=True)
+    return _arc(start_pos, end_pos, samples, CCW=True)
 
 @register_shape(">")
 def _arc_right(start_pos, end_pos, samples: int) -> list[tuple[float, float, float]]:
-    return _arc(start_pos, end_pos, samples, default=False)
+    return _arc(start_pos, end_pos, samples, CCW=False)
+
+def _sz_slide(start_pos: int, end_pos: int, samples: int, z: bool) -> list[tuple[float, float]]:
+    sx, sy = config.lane_xy(start_pos, config.RING_RADIUS)
+    ex, ey = config.lane_xy(end_pos, config.RING_RADIUS)
+    if not z:
+        fwx, fwy = config.lane_xy(((start_pos - 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
+        swx, swy = config.lane_xy(((start_pos + 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
+    else:
+        fwx, fwy = config.lane_xy(((start_pos + 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
+        swx, swy = config.lane_xy(((start_pos - 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
+    base = (samples - 1) // 3
+    remainder = (samples - 1) - base * 3
+
+    first_leg = _line_points((sx, sy), (fwx, fwy), base + remainder + 1)
+    second_leg = _line_points((fwx, fwy), (swx, swy), base + 1)[1:]
+    third_leg = _line_points((swx, swy), (ex, ey), base + 1)[1:]
+
+    points = first_leg + second_leg + third_leg
+    return _with_tangent_angles(points)
+
+@register_shape("s")
+def _s_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
+    return _sz_slide(start_pos, end_pos, samples, z=False)
+
+@register_shape("z")
+def _s_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
+    return _sz_slide(start_pos, end_pos, samples, z=True)
 
 def _segment(start_pos: int, end_pos: int, shape: str, samples: int) -> list[tuple[float, float, float]]:
-    handler = SHAPE_HANDLERS.get(shape, _straight)
+    handler = SHAPE_HANDLERS.get(shape, _straight_slide)
     return handler(start_pos, end_pos, samples)
 
 def build_path(start_position: int, waypoints: list[int], shape: str) -> list[tuple[float, float, float]]:
@@ -110,6 +151,14 @@ def build_path(start_position: int, waypoints: list[int], shape: str) -> list[tu
     `waypoints` is everything after the start position -- for most shapes
     that's a single endpoint; "V" slides have two legs, so two waypoints.
     """
+    if shape == "V":
+        if len(waypoints) != 2:
+            raise ValueError(
+                f"'V' slide needs exactly 2 waypoints (middle, end), got {waypoints!r}"
+            )
+        middle_position, end_position = waypoints
+        return _V_slide(start_position, middle_position, end_position, SAMPLES_PER_SEGMENT)
+    
     stops = [start_position] + waypoints
     points: list[tuple[float, float,float]] = []
     for i in range(len(stops) - 1):

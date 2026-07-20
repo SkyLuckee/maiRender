@@ -22,7 +22,6 @@ ring_image = pyglet.resource.image("outline.png")
 ring_image.anchor_x = ring_image.width // 2
 ring_image.anchor_y = ring_image.height // 2
 ring_sprite = pyglet.sprite.Sprite(ring_image, x=config.CENTER_X, y=config.CENTER_Y, batch=batch)
-# ring_sprite.scale = config.RING_SIZE / ring_image.width
 
 elapsed = 0.0
 renderer: NoteRenderer | None = None
@@ -50,5 +49,5 @@ def main(chart_path: str) -> None:
 
 
 if __name__ == "__main__":
-    chart_path = sys.argv[1] if len(sys.argv) > 1 else "maigraph_MASTER.json"
+    chart_path = sys.argv[1] if len(sys.argv) > 1 else "maigraph_RE_MASTER.json"
     main(chart_path)

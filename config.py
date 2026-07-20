@@ -5,19 +5,21 @@ WIDTH = 1080
 HEIGHT = 1080
 SCREEN_RADIUS = WIDTH / 2
 FPS = 60
+TAP_SPEED = 8
 
 # Radius of the judgment ring (where notes are hit) in pixels.
 RING_RADIUS = SCREEN_RADIUS * 8/9
 
 # Radius at which notes first spawn (edge of the approach path).
 SPAWN_RADIUS = SCREEN_RADIUS * 2/9
+# Radius for touch note
 A_SENSOR_RADIUS = SCREEN_RADIUS * 40/54
 B_SENSOR_RADIUS = SCREEN_RADIUS * 22/54
 D_SENSOR_RADIUS = SCREEN_RADIUS * 41/54
 # E_SENSOR_RADIUS
 
 # How many seconds before a note's hit time it should first appear on screen.
-APPROACH_TIME = (RING_RADIUS - SPAWN_RADIUS) / ((107.25 / (71.4184491 * (8 + 0.9975)**-0.985558604))*FPS) # d / v = t
+APPROACH_TIME = (RING_RADIUS - SPAWN_RADIUS) / ((107.25 / (71.4184491 * (TAP_SPEED + 0.9975)**-0.985558604))*FPS) # d / v = t
 # print(APPROACH_TIME)
 
 CENTER_X = WIDTH // 2
@@ -29,7 +31,7 @@ ASSET_DIR = "assets"
 
 # Misc
 RING_SIZE = 980
-SLIDE_SPACING = 0.098017 * RING_RADIUS
+SLIDE_SPACING = 0.098017 * RING_RADIUS # side length of a 32 gon
 
 NOTE_IMAGE_FILES = {
     "tap": "tap.png",
