@@ -54,14 +54,15 @@ class _SlideBody:
         placements = _slide_placements(self.path, self.lengths, config.SLIDE_SPACING)
         self.sprites = []
         self.distances = [i * config.SLIDE_SPACING for i in range(len(placements))]
+        group = pyglet.graphics.Group(order=_draw_order(config.SLIDE_LAYER, note.time))
         for x, y, angle in placements:
-            sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch)
+            sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=group)
             sprite.rotation = angle
             self.sprites.append(sprite)
         self._consumed = 0
     
     def head_position(self, progress: float) -> tuple[float, float]:
-        """... Uses the same arc-length model (self.lengths / self.total_length)
+        """Uses the same arc-length model (self.lengths / self.total_length)
         as consume() and the arrow placements, so the star and the arrows
         can never disagree about how far "progress" has gotten."""
         dist = max(0.0, min(1.0, progress)) * self.total_length
@@ -97,6 +98,14 @@ def load_note_images() -> dict[str, pyglet.image.AbstractImage]:
         images[variant] = img
     return images
 
+def _draw_order(tier: int, note_time: float) -> float:
+    """Group order for a note's sprite(s): lower draws first (behind).
+    Tiers are separated by LAYER_GAP so they never overlap. Within a tier,
+    later notes get a LOWER order (drawn first/behind) so earlier notes
+    end up rendered on top of later ones.
+    """
+    return tier * config.LAYER_GAP - note_time
+
 class NoteRenderer:
     def __init__(
         self,
@@ -114,14 +123,17 @@ class NoteRenderer:
     def update(self, t: float) -> None:
         while self._next_index < len(self.notes):
             note = self.notes[self._next_index]
-            if note.time - config.APPROACH_TIME > t:
+            if note.time - 2 * config.APPROACH_TIME > t:
                 break
 
             variant = config.note_variant(note, is_each=note.is_each)
             image = self.images.get(variant, self.images["tap"])
 
-            sprite = pyglet.sprite.Sprite(image, batch=self.batch)
+            tier = config.HOLD_LAYER if note.type == 2 else config.TAP_LAYER  # tap incl. star/break
+            group = pyglet.graphics.Group(order=_draw_order(tier, note.time))
+            sprite = pyglet.sprite.Sprite(image, batch=self.batch, group=group)
             sprite.rotation = _face_center_rotation(note.position)
+            sprite.scale = 0.0
             self._active[self._next_index] = (note, sprite)
             self._next_index += 1
 
@@ -139,15 +151,26 @@ class NoteRenderer:
                     self._slide_bodies[idx] = _SlideBody(note,  self.images["slide_each"] if (note.is_slide_each) else self.images["slide"], self.batch)
             
             if is_moving_slide:
+                sprite.scale = 1
                 body = self._slide_bodies[idx]
                 slide_progress = max(0.0, min(1.0, (t - note.slide_start_time) / note.slide_time))
                 x, y = body.head_position(slide_progress)
                 body.consume(slide_progress)
             else:
-                head_progress = (t - (note.time - config.APPROACH_TIME)) / config.APPROACH_TIME
-                head_progress = max(0.0, min(1.0, head_progress))
-                radius = config.SPAWN_RADIUS + (config.RING_RADIUS - config.SPAWN_RADIUS) * head_progress
-                x, y = config.lane_xy(note.position, radius)
+                move_start = note.time - config.APPROACH_TIME
+                if t < move_start:
+                    # Phase 1: scale up 0 -> 1 at the spawn location, not moving yet.
+                    spawn_start = note.time - 2 * config.APPROACH_TIME
+                    scale_progress = (t - spawn_start) / config.APPROACH_TIME
+                    sprite.scale = max(0.0, min(1.0, scale_progress))
+                    x, y = config.lane_xy(note.position, config.SPAWN_RADIUS)
+                else:
+                    # Phase 2: full scale, existing approach-to-ring movement.
+                    sprite.scale = 1.0
+                    head_progress = (t - move_start) / config.APPROACH_TIME
+                    head_progress = max(0.0, min(1.0, head_progress))
+                    radius = config.SPAWN_RADIUS + (config.RING_RADIUS - config.SPAWN_RADIUS) * head_progress
+                    x, y = config.lane_xy(note.position, radius)
 
             sprite.x, sprite.y = x, y
 

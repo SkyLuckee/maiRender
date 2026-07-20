@@ -19,7 +19,7 @@ D_SENSOR_RADIUS = SCREEN_RADIUS * 41/54
 # E_SENSOR_RADIUS
 
 # How many seconds before a note's hit time it should first appear on screen.
-APPROACH_TIME = (RING_RADIUS - SPAWN_RADIUS) / ((107.25 / (71.4184491 * (TAP_SPEED + 0.9975)**-0.985558604))*FPS) # d / v = t
+APPROACH_TIME = 2.4 / TAP_SPEED # 300ms for speed 8
 # print(APPROACH_TIME)
 
 CENTER_X = WIDTH // 2
@@ -48,6 +48,12 @@ NOTE_IMAGE_FILES = {
 }
 
 _TYPE_NAMES = {0: "tap", 1: "star", 2: "hold"}
+
+# Draw-order tiers, lowest = drawn first = appears behind.
+SLIDE_LAYER = 0   # the whole slide path (all its arrows), not per-arrow
+TAP_LAYER = 1     # tap AND star/slide-head, all variants including break
+HOLD_LAYER = 2
+LAYER_GAP = 1_000_000  # keeps tiers from ever overlapping regardless of chart length
 
 def note_variant(note, is_each: bool = False) -> str:
     """Map a Note to the sprite variant key that should render its head."""
