@@ -53,6 +53,25 @@ def _line_points(p0, p1, n):
     x1, y1 = p1
     return [(x0 + (x1 - x0) * i / (n - 1), y0 + (y1 - y0) * i / (n - 1)) for i in range(n)]
 
+def _circle_points(p0: tuple[float, float], r: float, a: float, b: float, CCW: bool, n: int) -> list[tuple[float, float]]:
+    """n points along a circle of radius r centered at p0, from angle a to
+    angle b (both radians), going counterclockwise if CCW else clockwise.
+
+    Returns plain (x, y) points like _line_points
+    """
+    cx, cy = p0
+    diff = (b - a) % (2 * math.pi)
+    
+    if not CCW:
+        diff -= 2 * math.pi
+    points = []
+    for i in range(n):
+        angle = a + diff * i / (n - 1) if n > 1 else a
+        x = cx + r * math.cos(angle)
+        y = cy + r * math.sin(angle)
+        points.append((x, y))
+    return points
+
 @register_shape("-")
 def _straight_slide(start_pos: int, end_pos: int, samples: int) -> list[tuple[float, float]]:
     sx, sy = config.lane_xy(start_pos, config.RING_RADIUS)
@@ -69,7 +88,7 @@ def _V_slide(start_position: int, middle_position: int, end_position: int, sampl
 
     half = samples // 2
     first_leg = _line_points((sx, sy), (mx, my), half + 1)
-    second_leg = _line_points((mx, my), (ex, ey), samples - half)[1:]  # drop duplicate corner
+    second_leg = _line_points((mx, my), (ex, ey), samples - half)[1:]
     
     points = first_leg + second_leg
     return _with_tangent_angles(points)
@@ -86,17 +105,25 @@ def _v_slide(start_pos: int, end_pos: int, samples: int) -> list[tuple[float, fl
     points = first_leg + second_leg
     return _with_tangent_angles(points)
 
-def _arc(start_pos: int, end_pos: int, samples: int, CCW: bool) -> list[tuple[float, float]]:
+def _arc(start_pos: int, end_pos: int, samples: int, CCW: bool, shortest: bool) -> list[tuple[float, float]]:
     start_angle = config.lane_angle(start_pos)
     end_angle = config.lane_angle(end_pos)
     diff = (end_angle - start_angle) % (2 * math.pi)
 
-    if start_pos not in (3,4,5,6):
-        if not CCW:
-            diff -= 2 * math.pi
+    if not shortest:
+        if start_pos not in (3,4,5,6):
+            if not CCW:
+                diff -= 2 * math.pi
+        else:
+            if CCW:
+                diff -= 2 * math.pi
+        if diff == 0:
+            diff = 2 * math.pi
     else:
-        if CCW:
+        if diff > math.pi:
             diff -= 2 * math.pi
+        elif diff == math.pi or diff == 0:
+            raise ValueError(f"Invalid ^ endpoint: {end_pos}")
 
     points = []
     for i in range(samples):
@@ -108,21 +135,25 @@ def _arc(start_pos: int, end_pos: int, samples: int, CCW: bool) -> list[tuple[fl
 
 @register_shape("<")
 def _arc_left(start_pos, end_pos, samples: int) -> list[tuple[float, float, float]]:
-    return _arc(start_pos, end_pos, samples, CCW=True)
+    return _arc(start_pos, end_pos, samples, CCW=True, shortest = False)
 
 @register_shape(">")
 def _arc_right(start_pos, end_pos, samples: int) -> list[tuple[float, float, float]]:
-    return _arc(start_pos, end_pos, samples, CCW=False)
+    return _arc(start_pos, end_pos, samples, CCW=False, shortest = False)
+
+@register_shape("^")
+def _arc_shortest(start_pos, end_pos, samples: int) -> list[tuple[float, float, float]]:
+    return _arc(start_pos, end_pos, samples, CCW=False, shortest = True)
 
 def _sz_slide(start_pos: int, end_pos: int, samples: int, z: bool) -> list[tuple[float, float]]:
     sx, sy = config.lane_xy(start_pos, config.RING_RADIUS)
     ex, ey = config.lane_xy(end_pos, config.RING_RADIUS)
     if not z:
         fwx, fwy = config.lane_xy(((start_pos - 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
-        swx, swy = config.lane_xy(((start_pos + 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
+        swx, swy = config.lane_xy(((end_pos - 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
     else:
         fwx, fwy = config.lane_xy(((start_pos + 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
-        swx, swy = config.lane_xy(((start_pos - 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
+        swx, swy = config.lane_xy(((end_pos + 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
     base = (samples - 1) // 3
     remainder = (samples - 1) - base * 3
 
@@ -141,8 +172,40 @@ def _s_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
 def _s_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
     return _sz_slide(start_pos, end_pos, samples, z=True)
 
+def _pq_slide(start_pos: int, end_pos: int, samples: int, CCW: bool) -> list[tuple[float, float]]:
+    sx, sy = config.lane_xy(start_pos, config.RING_RADIUS)
+    ex, ey = config.lane_xy(end_pos, config.RING_RADIUS)
+
+    if not CCW:
+        a = config.lane_angle(start_pos + 1.5)
+        b = config.lane_angle(end_pos - 1.5)
+    else:
+        a = config.lane_angle(start_pos - 1.5)
+        b = config.lane_angle(end_pos + 1.5)
+
+    lsx = config.CENTER_X + config.PQ_RADIUS * math.cos(a)
+    lsy = config.CENTER_Y + config.PQ_RADIUS * math.sin(a)
+
+    lex = config.CENTER_X + config.PQ_RADIUS * math.cos(b)
+    ley = config.CENTER_Y + config.PQ_RADIUS * math.sin(b)
+
+    first_leg = _line_points((sx,sy), (lsx,lsy), 2)
+    loop = _circle_points((config.CENTER_X,config.CENTER_Y), config.PQ_RADIUS, a,b, CCW, samples - 4)[1:]
+    second_leg = _line_points((lex,ley), (ex,ey), 2)[1:]
+
+    points = first_leg + loop + second_leg
+    return _with_tangent_angles(points)
+
+@register_shape("q")
+def _q_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
+    return _pq_slide(start_pos, end_pos, samples, CCW=False)
+
+@register_shape("p")
+def _p_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
+    return _pq_slide(start_pos, end_pos, samples, CCW=True)
+
 def _segment(start_pos: int, end_pos: int, shape: str, samples: int) -> list[tuple[float, float, float]]:
-    handler = SHAPE_HANDLERS.get(shape, _straight_slide)
+    handler = SHAPE_HANDLERS.get(shape, _v_slide)
     return handler(start_pos, end_pos, samples)
 
 def build_path(start_position: int, waypoints: list[int], shape: str) -> list[tuple[float, float, float]]:
@@ -168,7 +231,7 @@ def build_path(start_position: int, waypoints: list[int], shape: str) -> list[tu
         points.extend(segment)
     return points
 
-# x0, y0 = config.lane_xy(1, 480)
+# x0, y0 = config.lane_xy(8.5, 480)
 # x1, y1 = config.lane_xy(5, 480)
 # print(_tangent_angle_deg(x0, y0, x1, y1))
 # print(_straight(4,8,2))
@@ -179,4 +242,4 @@ def build_path(start_position: int, waypoints: list[int], shape: str) -> list[tu
 # start_angle = config.lane_angle(5)
 # end_angle = config.lane_angle(4)
 # diff = (end_angle - start_angle) % (2 * math.pi)
-# print(diff)
+# print(diff/math.pi)

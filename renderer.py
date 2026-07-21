@@ -82,19 +82,102 @@ class _SlideBody:
             if sprite is not None:
                 sprite.delete()
 
+class _HoldVisual:
+    """Head, body, and tail sprites for one hold note.
+
+    Head approaches the ring like a normal note, arriving at note.time and
+    staying pinned there. Tail uses the exact same approach formula but
+    targets note.end_time instead -- since head_progress/tail_progress are
+    both clamped to [0, 1], the tail naturally sits still at SPAWN_RADIUS
+    until its own approach window opens, with no separate branch needed.
+    The body sprite is repositioned and vertically re-scaled every frame
+    to span exactly the current gap between head and tail.
+    """
+    def __init__(self, note: Note, head_img, body_img, tail_img,
+                 batch: pyglet.graphics.Batch, group: pyglet.graphics.Group):
+        rotation = _face_center_rotation(note.position)
+        self.head = pyglet.sprite.Sprite(head_img, batch=batch, group=group)
+        self.body = pyglet.sprite.Sprite(body_img, batch=batch, group=group)
+        self.tail = pyglet.sprite.Sprite(tail_img, batch=batch, group=group)
+        for sprite in (self.head, self.body, self.tail):
+            sprite.rotation = rotation
+        self._body_native_height = body_img.height or 1
+
+    def update(self, t: float, note: Note) -> None:
+        head_progress = (t - (note.time - config.APPROACH_TIME)) / config.APPROACH_TIME
+        head_progress = max(0.0, min(1.0, head_progress))
+        head_radius = config.SPAWN_RADIUS + (config.RING_RADIUS - config.SPAWN_RADIUS) * head_progress
+
+        tail_move_start = note.end_time - config.APPROACH_TIME
+        tail_progress = (t - tail_move_start) / config.APPROACH_TIME
+        tail_progress = max(0.0, min(1.0, tail_progress))
+        tail_radius = config.SPAWN_RADIUS + (config.RING_RADIUS - config.SPAWN_RADIUS) * tail_progress
+
+        hx, hy = config.lane_xy(note.position, head_radius)
+        tx, ty = config.lane_xy(note.position, tail_radius)
+
+        self.head.x, self.head.y = hx, hy
+        self.tail.x, self.tail.y = tx, ty
+
+        # head_radius >= tail_radius always (head reaches the ring first and
+        # stays there; tail can never overtake it), so this gap is never negative.
+        self.body.x, self.body.y = tx, ty
+        gap = head_radius - tail_radius
+        self.body.scale_y = gap / self._body_native_height
+
+    def delete(self) -> None:
+        self.head.delete()
+        self.body.delete()
+        self.tail.delete()
+
+_HOLD_VARIANTS = ("hold", "hold_break", "hold_each")
+
+def _slice_hold_regions(img: pyglet.image.AbstractImage):
+    """Split a hold sprite sheet into (head, body, tail) sub-images.
+
+    The sheet is HOLD_HEAD_TAIL_SIZE px of head at the top, the same
+    amount of tail at the bottom, and a stretchable body strip in between.
+    Anchors are set so head's and tail's body-facing edges are each at
+    local y matching where the body attaches -- when both are placed at
+    the same (x, y), those edges coincide exactly (body length 0).
+    """
+    w, h = img.width, img.height
+    size_px = int(round(config.HOLD_HEAD_TAIL_SIZE))
+
+    tail = img.get_region(0, 0, w, size_px)
+    head = img.get_region(0, h - size_px, w, size_px)
+    body_height = max(h - 2 * size_px, 1)
+    body = img.get_region(0, size_px, w, body_height)
+
+    head.anchor_x = w // 2
+    head.anchor_y = 0            # bottom edge of head crop -- attaches to body
+
+    tail.anchor_x = w // 2
+    tail.anchor_y = size_px      # top edge of tail crop -- attaches to body
+
+    body.anchor_x = w // 2
+    body.anchor_y = 0            # stretches upward (outward) from this edge
+
+    return head, body, tail
+
 def load_note_images() -> dict[str, pyglet.image.AbstractImage]:
     images = {}
     for variant, filename in config.NOTE_IMAGE_FILES.items():
         img = pyglet.resource.image(filename)
+
+        if variant in _HOLD_VARIANTS:
+            head, body, tail = _slice_hold_regions(img)
+            images[f"{variant}_head"] = head
+            images[f"{variant}_body"] = body
+            images[f"{variant}_tail"] = tail
+            continue
+
         if variant in ("slide", "slide_each"):
             img.anchor_x = img.width // 2 - 9
         else:
             img.anchor_x = img.width // 2
 
-        if variant in ("hold", "hold_each"):
-            img.anchor_y = 129.5633
-        else:
-            img.anchor_y = img.height // 2
+        img.anchor_y = img.height // 2
         images[variant] = img
     return images
 
@@ -117,20 +200,28 @@ class NoteRenderer:
         self.batch = batch
         self.images = images
         self._next_index = 0
-        self._active: dict[int, tuple[Note, pyglet.sprite.Sprite]] = {}
+        self._active: dict[int, tuple[Note, pyglet.sprite.Sprite | None]] = {}
         self._slide_bodies: dict[int, _SlideBody] = {}
+        self._hold_visuals: dict[int, _HoldVisual] = {}
 
     def update(self, t: float) -> None:
         while self._next_index < len(self.notes):
             note = self.notes[self._next_index]
             if note.time - 2 * config.APPROACH_TIME > t:
                 break
+            
+            if note.type == 2:
+                # No single spawn sprite for holds -- head/body/tail are
+                # created lazily below, once the hold's own approach window
+                # opens (note.time - APPROACH_TIME), not before.
+                self._active[self._next_index] = (note, None)
+                self._next_index += 1
+                continue
 
             variant = config.note_variant(note, is_each=note.is_each)
             image = self.images.get(variant, self.images["tap"])
 
-            tier = config.HOLD_LAYER if note.type == 2 else config.TAP_LAYER  # tap incl. star/break
-            group = pyglet.graphics.Group(order=_draw_order(tier, note.time))
+            group = pyglet.graphics.Group(order=_draw_order(config.TAP_LAYER, note.time))
             sprite = pyglet.sprite.Sprite(image, batch=self.batch, group=group)
             sprite.rotation = _face_center_rotation(note.position)
             sprite.scale = 0.0
@@ -139,6 +230,26 @@ class NoteRenderer:
 
         expired = []
         for idx, (note, sprite) in self._active.items():
+            if note.type == 2:
+                move_start = note.time - config.APPROACH_TIME
+                if idx not in self._hold_visuals and t >= move_start:
+                    variant = config.note_variant(note, is_each=note.is_each)
+                    group = pyglet.graphics.Group(order=_draw_order(config.HOLD_LAYER, note.time))
+                    self._hold_visuals[idx] = _HoldVisual(
+                        note,
+                        self.images[f"{variant}_head"],
+                        self.images[f"{variant}_body"],
+                        self.images[f"{variant}_tail"],
+                        self.batch,
+                        group,
+                    )
+                visual = self._hold_visuals.get(idx)
+                if visual is not None:
+                    visual.update(t, note)
+
+                if t > note.end_time + 0.05:
+                    expired.append(idx)
+                continue
             is_moving_slide = (
                 note.type == 1
                 and note.slide_shape is not None
@@ -178,9 +289,13 @@ class NoteRenderer:
                 expired.append(idx)
 
         for idx in expired:
-            sprite = self._active[idx][1]
-            sprite.delete()
+            note, sprite = self._active[idx]
+            if sprite is not None:
+                sprite.delete()
             self._active.pop(idx)
             body = self._slide_bodies.pop(idx, None)
             if body is not None:
                 body.delete()
+            visual = self._hold_visuals.pop(idx, None)
+            if visual is not None:
+                visual.delete()

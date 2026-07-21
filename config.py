@@ -3,7 +3,7 @@ import math
 
 WIDTH = 1080
 HEIGHT = 1080
-SCREEN_RADIUS = WIDTH / 2
+SCREEN_RADIUS = HEIGHT / 2
 FPS = 60
 TAP_SPEED = 8
 
@@ -16,7 +16,10 @@ SPAWN_RADIUS = SCREEN_RADIUS * 2/9
 A_SENSOR_RADIUS = SCREEN_RADIUS * 40/54
 B_SENSOR_RADIUS = SCREEN_RADIUS * 22/54
 D_SENSOR_RADIUS = SCREEN_RADIUS * 41/54
-# E_SENSOR_RADIUS
+E_SENSOR_RADIUS = SCREEN_RADIUS * 31/54
+
+PQ_RADIUS = 183.6870475 #SCREEN_RADIUS * 8/9 * math.sin(math.pi/8)
+PPQQ_RADIUS = 0.413534142 #715 | magic number, doesnt matter anyway
 
 # How many seconds before a note's hit time it should first appear on screen.
 APPROACH_TIME = 2.4 / TAP_SPEED # 300ms for speed 8
@@ -32,6 +35,7 @@ ASSET_DIR = "assets"
 # Misc
 RING_SIZE = 980
 SLIDE_SPACING = 0.098017 * RING_RADIUS # side length of a 32 gon
+HOLD_HEAD_TAIL_SIZE = 70.4367  # px height of the head/tail crop
 
 NOTE_IMAGE_FILES = {
     "tap": "tap.png",
@@ -50,9 +54,9 @@ NOTE_IMAGE_FILES = {
 _TYPE_NAMES = {0: "tap", 1: "star", 2: "hold"}
 
 # Draw-order tiers, lowest = drawn first = appears behind.
-SLIDE_LAYER = 0   # the whole slide path (all its arrows), not per-arrow
-TAP_LAYER = 1     # tap AND star/slide-head, all variants including break
-HOLD_LAYER = 2
+SLIDE_LAYER = 1   # the whole slide path (all its arrows), not per-arrow
+TAP_LAYER = 2     # tap AND star/slide-head, all variants including break
+HOLD_LAYER = 3
 LAYER_GAP = 1_000_000  # keeps tiers from ever overlapping regardless of chart length
 
 def note_variant(note, is_each: bool = False) -> str:
