@@ -1,7 +1,8 @@
 # maiRender
 
-maimai chart-visualizer project,.
+maimai chart-visualizer project.
 Takes a JSON chart export (flattened `timingList`) and animates notes approaching a judgment ring.
+Powered using shitcode and AI
 
 ## Layout
 
@@ -18,4 +19,10 @@ Images are loaded once via `pyglet.resource` (see `load_note_images()` in `rende
 
 ## Status
 
-Not yet implemented: audio playback / sync, hold-note visuals, certain slide shapes, etc
+**TODO**
+- [ ] audio playback / sync
+- [ ] ppqq , w slide
+- [ ] video export
+- [ ] touch note
+- [ ] compound slide
+- [ ] hanabi

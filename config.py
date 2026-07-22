@@ -19,7 +19,7 @@ D_SENSOR_RADIUS = SCREEN_RADIUS * 41/54
 E_SENSOR_RADIUS = SCREEN_RADIUS * 31/54
 
 PQ_RADIUS = 183.6870475 #SCREEN_RADIUS * 8/9 * math.sin(math.pi/8)
-PPQQ_RADIUS = 0.413534142 #715 | magic number, doesnt matter anyway
+PPQQ_RADIUS = 223.3084370661     #0.413534142715 * SCREEN_RADIUS | magic number, doesnt matter anyway
 
 # How many seconds before a note's hit time it should first appear on screen.
 APPROACH_TIME = 2.4 / TAP_SPEED # 300ms for speed 8

@@ -101,10 +101,20 @@ class _HoldVisual:
         self.tail = pyglet.sprite.Sprite(tail_img, batch=batch, group=group)
         for sprite in (self.head, self.body, self.tail):
             sprite.rotation = rotation
+            sprite.scale = 0.0
         self._body_native_height = body_img.height or 1
 
     def update(self, t: float, note: Note) -> None:
-        head_progress = (t - (note.time - config.APPROACH_TIME)) / config.APPROACH_TIME
+        spawn_start = note.time - 2 * config.APPROACH_TIME
+        move_start = note.time - config.APPROACH_TIME
+
+        scale_progress = (t - spawn_start) / config.APPROACH_TIME
+        scale = max(0.0, min(1.0, scale_progress))
+        self.head.scale = scale
+        self.body.scale = scale
+        self.tail.scale = scale
+
+        head_progress = (t - move_start) / config.APPROACH_TIME
         head_progress = max(0.0, min(1.0, head_progress))
         head_radius = config.SPAWN_RADIUS + (config.RING_RADIUS - config.SPAWN_RADIUS) * head_progress
 
@@ -211,9 +221,17 @@ class NoteRenderer:
                 break
             
             if note.type == 2:
-                # No single spawn sprite for holds -- head/body/tail are
-                # created lazily below, once the hold's own approach window
-                # opens (note.time - APPROACH_TIME), not before.
+                # Spawn head/body/tail together, same timing as tap/star...
+                variant = config.note_variant(note, is_each=note.is_each)
+                group = pyglet.graphics.Group(order=_draw_order(config.HOLD_LAYER, note.time))
+                self._hold_visuals[self._next_index] = _HoldVisual(
+                    note,
+                    self.images[f"{variant}_head"],
+                    self.images[f"{variant}_body"],
+                    self.images[f"{variant}_tail"],
+                    self.batch,
+                    group,
+                )
                 self._active[self._next_index] = (note, None)
                 self._next_index += 1
                 continue
@@ -231,21 +249,7 @@ class NoteRenderer:
         expired = []
         for idx, (note, sprite) in self._active.items():
             if note.type == 2:
-                move_start = note.time - config.APPROACH_TIME
-                if idx not in self._hold_visuals and t >= move_start:
-                    variant = config.note_variant(note, is_each=note.is_each)
-                    group = pyglet.graphics.Group(order=_draw_order(config.HOLD_LAYER, note.time))
-                    self._hold_visuals[idx] = _HoldVisual(
-                        note,
-                        self.images[f"{variant}_head"],
-                        self.images[f"{variant}_body"],
-                        self.images[f"{variant}_tail"],
-                        self.batch,
-                        group,
-                    )
-                visual = self._hold_visuals.get(idx)
-                if visual is not None:
-                    visual.update(t, note)
+                self._hold_visuals[idx].update(t, note)
 
                 if t > note.end_time + 0.05:
                     expired.append(idx)
