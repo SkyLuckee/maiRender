@@ -20,6 +20,9 @@ def _slide_placements(path, lengths, spacing: float):
         dist += spacing
     return placements
 
+"""Offset between consecutive arrows' draw order, layered on top of the
+slide's own base order"""
+ARROW_ORDER_EPSILON = 1e-6
 
 class SlidePathVisual:
     """A chain of arrow sprites tracing one slide's path, consumed in order
@@ -31,8 +34,9 @@ class SlidePathVisual:
         placements = _slide_placements(self.path, self.lengths, config.SLIDE_SPACING)
         self.sprites = []
         self.distances = [i * config.SLIDE_SPACING for i in range(len(placements))]
-        group = pyglet.graphics.Group(order=draw_order(config.SLIDE_LAYER, note.time))
-        for x, y, angle in placements:
+        base_order = draw_order(config.SLIDE_LAYER, note.time)
+        for i, (x, y, angle) in enumerate(placements):
+            group = pyglet.graphics.Group(order=base_order - i * ARROW_ORDER_EPSILON)
             sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=group)
             sprite.rotation = angle
             self.sprites.append(sprite)

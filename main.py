@@ -26,6 +26,13 @@ ring_sprite = pyglet.sprite.Sprite(ring_image, x=config.CENTER_X, y=config.CENTE
 elapsed = 0.0
 renderer: NoteRenderer | None = None
 
+# music
+music = pyglet.media.load('track.mp3', streaming=True)
+player = pyglet.media.Player()
+player.queue(music)
+player.loop = False
+player.volume = 0.5
+
 def update(dt: float) -> None:
     global elapsed
     elapsed += dt
@@ -43,6 +50,7 @@ def main(chart_path: str) -> None:
     chart = load_chart(chart_path)
     print(f"Loaded {chart.title} [{chart.difficulty} {chart.level}] - {len(chart.notes)} notes")
     images = load_note_images()
+    player.play()
     renderer = NoteRenderer(chart.notes, batch, images)
     pyglet.clock.schedule_interval(update, 1 / config.FPS)
     pyglet.app.run()
