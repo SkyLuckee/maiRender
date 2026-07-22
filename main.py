@@ -5,7 +5,7 @@ import pyglet
 
 import config
 from chart import load_chart
-from renderer import NoteRenderer, load_note_images
+from note_renderer import NoteRenderer, load_note_images
 
 # Sprite filenames in config.py are resolved relative to this path.
 pyglet.resource.path = [config.ASSET_DIR]
