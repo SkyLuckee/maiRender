@@ -20,6 +20,7 @@ E_SENSOR_RADIUS = SCREEN_RADIUS * 31/54
 
 PQ_RADIUS = 183.6870475 #SCREEN_RADIUS * 8/9 * math.sin(math.pi/8)
 PPQQ_RADIUS = 223.3084370661     #0.413534142715 * SCREEN_RADIUS | magic number, doesnt matter anyway
+PPQQ_HYP = 220.1537394 # distance from ppqq center point to the origin
 
 # How many seconds before a note's hit time it should first appear on screen.
 APPROACH_TIME = 2.4 / TAP_SPEED # 300ms for speed 8
@@ -48,7 +49,8 @@ NOTE_IMAGE_FILES = {
     "star_break": "star_break.png",
     "star_each": "star_each.png",
     "slide": "slide.png",
-    "slide_each": "slide_each.png"
+    "slide_each": "slide_each.png",
+    "slide_break": "slide_break.png"
 }
 
 _TYPE_NAMES = {0: "tap", 1: "star", 2: "hold"}
@@ -59,10 +61,12 @@ TAP_LAYER = 2     # tap AND star/slide-head, all variants including break
 HOLD_LAYER = 3
 LAYER_GAP = 1_000_000  # keeps tiers from ever overlapping regardless of chart length
 
-def note_variant(note, is_each: bool = False) -> str:
+def note_variant(note, is_each: bool = False, is_break: bool | None = None) -> str:
     """Map a Note to the sprite variant key that should render its head."""
     base = _TYPE_NAMES.get(note.type, "tap")
-    if note.is_break:
+    if is_break is None: # fallback
+        is_break = note.is_break
+    if is_break:
         return f"{base}_break"
     if is_each:
         return f"{base}_each"

@@ -27,7 +27,7 @@ def load_note_images() -> dict[str, pyglet.image.AbstractImage]:
             images[f"{variant}_tail"] = tail
             continue
 
-        if variant in ("slide", "slide_each"):
+        if variant in ("slide", "slide_each","slide_break"):
             img.anchor_x = img.width // 2 - 9
         else:
             img.anchor_x = img.width // 2
@@ -65,10 +65,26 @@ class NoteRenderer:
                     self.batch,
                 )
             elif note.type == 1 and note.slide_shape is not None:
-                variant = config.note_variant(note, is_each=note.is_each)
-                head_image = self.images.get(variant, self.images["tap"])
-                path_image = self.images["slide_each"] if note.is_slide_each else self.images["slide"]
-                visual = SlideVisual(note, head_image, path_image, self.batch)
+                head_variant = config.note_variant(note, is_each=note.is_each)
+                head_image = self.images.get(head_variant, self.images["tap"])
+
+                # Tracer uses slide-specific flags rather than the note's
+                # general is_each/is_break, so it can be skinned separately
+                # from the head.
+                tracer_variant = config.note_variant(
+                    note,
+                    is_each=note.is_slide_each,
+                    is_break=note.is_slide_break
+                )
+                tracer_image = self.images.get(tracer_variant, self.images["tap"])
+
+                if note.is_slide_each:
+                    path_image = self.images["slide_each"]
+                elif note.is_slide_break:
+                    path_image = self.images["slide_break"]
+                else:
+                    path_image = self.images["slide"]
+                visual = SlideVisual(note, head_image, tracer_image, path_image, self.batch)
             else:
                 variant = config.note_variant(note, is_each=note.is_each)
                 image = self.images.get(variant, self.images["tap"])

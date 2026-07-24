@@ -9,7 +9,7 @@ import math
 
 import config
 
-SAMPLES_PER_SEGMENT = 64
+SAMPLES_PER_SEGMENT = 128
 SHAPE_HANDLERS = {}
 
 def register_shape(*chars):
@@ -64,6 +64,8 @@ def _circle_points(p0: tuple[float, float], r: float, a: float, b: float, CCW: b
     
     if not CCW:
         diff -= 2 * math.pi
+    if diff == 0:
+        diff = 2 * math.pi
     points = []
     for i in range(n):
         angle = a + diff * i / (n - 1) if n > 1 else a
@@ -117,8 +119,6 @@ def _arc(start_pos: int, end_pos: int, samples: int, CCW: bool, shortest: bool) 
         else:
             if CCW:
                 diff -= 2 * math.pi
-        if diff == 0:
-            diff = 2 * math.pi
     else:
         if diff > math.pi:
             diff -= 2 * math.pi
@@ -149,11 +149,11 @@ def _sz_slide(start_pos: int, end_pos: int, samples: int, z: bool) -> list[tuple
     sx, sy = config.lane_xy(start_pos, config.RING_RADIUS)
     ex, ey = config.lane_xy(end_pos, config.RING_RADIUS)
     if not z:
-        fwx, fwy = config.lane_xy(((start_pos - 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
-        swx, swy = config.lane_xy(((end_pos - 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
+        fwx, fwy = config.lane_xy(((start_pos - 2 - 1) % 8) + 1, 200) # 200 is a side length of a right triangle create
+        swx, swy = config.lane_xy(((end_pos - 2 - 1) % 8) + 1, 200) # by the first half of sz slide and radius
     else:
-        fwx, fwy = config.lane_xy(((start_pos + 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
-        swx, swy = config.lane_xy(((end_pos + 2 - 1) % 8) + 1, config.B_SENSOR_RADIUS)
+        fwx, fwy = config.lane_xy(((start_pos + 2 - 1) % 8) + 1, 200)
+        swx, swy = config.lane_xy(((end_pos + 2 - 1) % 8) + 1, 200)
     base = (samples - 1) // 3
     remainder = (samples - 1) - base * 3
 
@@ -204,6 +204,56 @@ def _q_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
 def _p_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
     return _pq_slide(start_pos, end_pos, samples, CCW=True)
 
+def _ppqq_slide(start_pos: int, end_pos: int, samples: int, CCW: bool) -> list[tuple[float, float]]:
+    sx, sy = config.lane_xy(start_pos, config.RING_RADIUS)
+    ex, ey = config.lane_xy(end_pos, config.RING_RADIUS)
+
+    start_angle = config.lane_angle(start_pos)
+    end_angle = config.lane_angle(end_pos)
+    diff = (end_angle - start_angle) % (2 * math.pi)
+    diff = round(diff/ math.pi,2)
+
+    PPQQ_ANGLE = [240,264,288,324,0,408,120,204] # list of escape angle for the loop 
+    index = int(diff*4)
+
+    if CCW:
+        a = config.lane_angle(start_pos - 3.5) - 1.09 # magic number
+        centerx, centery = config.lane_xy(start_pos+1.5, config.PPQQ_HYP)
+        b = a + math.radians(PPQQ_ANGLE[index])
+    else:
+        a = config.lane_angle(start_pos + 3.5) + 1.09
+        centerx, centery = config.lane_xy(start_pos-1.5, config.PPQQ_HYP)
+        b = a - math.radians(PPQQ_ANGLE[-index])
+
+    lsx = centerx + config.PPQQ_RADIUS * math.cos(a)
+    lsy = centery + config.PPQQ_RADIUS * math.sin(a)
+
+    lex = centerx + config.PPQQ_RADIUS * math.cos(b)
+    ley = centery + config.PPQQ_RADIUS * math.sin(b)
+
+    first_leg = _line_points((sx,sy), (lsx,lsy), 2)
+    if CCW and index == 5:
+        loop = _circle_points((centerx,centery), config.PPQQ_RADIUS, a,a, CCW, (samples - 4)//2)[1:]
+        extra = _circle_points((centerx,centery), config.PPQQ_RADIUS, a, a + math.radians(48), CCW, (samples - 4)//2)[1:]
+    elif not CCW and index == 3:
+        loop = _circle_points((centerx,centery), config.PPQQ_RADIUS, a,a, CCW, (samples - 4)//2)[1:]
+        extra = _circle_points((centerx,centery), config.PPQQ_RADIUS, a, a - math.radians(48), CCW, (samples - 4)//2)[1:]
+    else:
+        loop = _circle_points((centerx,centery), config.PPQQ_RADIUS, a,b, CCW, samples - 4)[1:]
+        extra = []
+    second_leg = _line_points((lex,ley), (ex,ey), 2)[1:]
+
+    points = first_leg + loop + extra+ second_leg
+    return _with_tangent_angles(points)
+
+@register_shape("pp")
+def _pp_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
+    return _ppqq_slide(start_pos, end_pos, samples, CCW=True)
+
+@register_shape("qq")
+def _qq_slide(start_pos, end_pos, samples) -> list[tuple[float, float, float]]:
+    return _ppqq_slide(start_pos, end_pos, samples, CCW=False)
+
 def _segment(start_pos: int, end_pos: int, shape: str, samples: int) -> list[tuple[float, float, float]]:
     handler = SHAPE_HANDLERS.get(shape, _v_slide)
     return handler(start_pos, end_pos, samples)
@@ -231,15 +281,11 @@ def build_path(start_position: int, waypoints: list[int], shape: str) -> list[tu
         points.extend(segment)
     return points
 
-# x0, y0 = config.lane_xy(8.5, 480)
+# x0, y0 = config.lane_xy(3, config.RING_RADIUS)
+# print(x0-340.3,y0+161.2)
 # x1, y1 = config.lane_xy(5, 480)
 # print(_tangent_angle_deg(x0, y0, x1, y1))
 # print(_straight(4,8,2))
 
 # a = build_path(1,[4],"-")
 # print(a)
-
-# start_angle = config.lane_angle(5)
-# end_angle = config.lane_angle(4)
-# diff = (end_angle - start_angle) % (2 * math.pi)
-# print(diff/math.pi)

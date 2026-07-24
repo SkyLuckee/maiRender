@@ -5,8 +5,9 @@ import json
 import re
 
 # Matches slide RawContent like "3<6[8:1]" or "1V37[8:1]":
-#   start digit, shape token, one-or-more end digits, "[num:den]".
-_SLIDE_PATTERN = re.compile(r"^\d([^\d\[]+)(\d+)\[\d+:\d+\]$")
+#   start digit, shape token, one-or-more end digits, "[...]" (anything
+#   inside the brackets, un-parsed)
+_SLIDE_PATTERN = re.compile(r"^\d([^\d\[]+)(\d+)\[[^\]]*\]$")
 
 
 @dataclass
@@ -23,6 +24,7 @@ class Note:
     slide_shape: Optional[str] = None
     slide_waypoints: Optional[list[int]] = None
     is_slide_each: bool = False
+    is_slide_break: bool = False
 
     @property
     def end_time(self) -> float:
@@ -81,7 +83,8 @@ def load_chart(path: str) -> Chart:
                     slide_time=n.get("SlideTime"),
                     slide_shape=slide_shape,
                     slide_waypoints=slide_waypoints,
-                    is_slide_each = is_slide_each
+                    is_slide_each = is_slide_each,
+                    is_slide_break = n.get("IsSlideBreak", False)
                 )
             )
 

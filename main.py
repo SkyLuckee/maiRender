@@ -57,5 +57,6 @@ def main(chart_path: str) -> None:
 
 
 if __name__ == "__main__":
-    chart_path = sys.argv[1] if len(sys.argv) > 1 else "maigraph_MASTER.json"
+    chart_path = sys.argv[1] if len(sys.argv) > 1 else "qz_Re_MASTER.json"
+    # chart_path = sys.argv[1] if len(sys.argv) > 1 else "majdata.json"
     main(chart_path)
