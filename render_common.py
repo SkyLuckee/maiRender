@@ -32,11 +32,10 @@ def cumulative_lengths(path) -> list[float]:
 def sample_at_distance(path, lengths, dist: float) -> tuple[float, float, float]:
     """Return (x, y, angle_degrees) at arc-length `dist` along `path`."""
     i = next((i for i in range(1, len(lengths)) if lengths[i] >= dist), len(lengths) - 1)
-    x0, y0, angle0 = path[i - 1]
-    x1, y1, angle1 = path[i]
+    x0, y0, angle = path[i - 1]
+    x1, y1, _ = path[i]
     seg_len = lengths[i] - lengths[i - 1]
     frac = 0.0 if seg_len == 0 else max(0.0, min(1.0, (dist - lengths[i - 1]) / seg_len))
     x = x0 + (x1 - x0) * frac
     y = y0 + (y1 - y0) * frac
-    angle = angle0 + ((angle1 - angle0 + 180) % 360 - 180) * frac
     return x, y, angle

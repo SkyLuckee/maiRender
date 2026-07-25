@@ -24,17 +24,14 @@ def _tangent_angle_deg(x0: float, y0: float, x1: float, y1: float) -> float:
     +90 at the end to account for the original direction of the sprite"""
     return math.degrees(math.atan2(x1 - x0, y1 - y0)) + 90
 
-def _with_tangent_angles(points, offset_fn=None, pivot_index: int | None = None) -> list[tuple[float, float, float]]:
+def _with_tangent_angles(points, offset_fn=None) -> list[tuple[float, float, float]]:
     """Default rotation: each point faces the next point (last point reuses
     the final segment's direction).
  
     `offset_fn`, if given, is called as offset_fn(progress) for each point
     (progress: 0 at the first point, 1 at the last) and its return value
     (degrees) is added on top of the tangent angle -- so a shape can vary
-    rotation along its own path without leaving this function.
-
-    `pivot_index`, if set, keeps the inbound tangent on that corner vertex
-    so rotation can ease onto the next leg via `sample_at_distance`."""
+    rotation along its own path without leaving this function."""
     n = len(points)
     triples = []
     for i, (x, y) in enumerate(points):
@@ -48,10 +45,6 @@ def _with_tangent_angles(points, offset_fn=None, pivot_index: int | None = None)
             progress = i / (n - 1) if n > 1 else 0.0
             angle += offset_fn(progress)
         triples.append((x, y, angle))
-    if pivot_index is not None and 0 < pivot_index < len(triples):
-        x, y, _ = triples[pivot_index]
-        _, _, incoming = triples[pivot_index - 1]
-        triples[pivot_index] = (x, y, incoming)
     return triples
 
 def _line_points(p0, p1, n):
@@ -100,7 +93,7 @@ def _V_slide(start_position: int, middle_position: int, end_position: int, sampl
     second_leg = _line_points((mx, my), (ex, ey), samples - half)[1:]
     
     points = first_leg + second_leg
-    return _with_tangent_angles(points, pivot_index=half)
+    return _with_tangent_angles(points)
 
 @register_shape("v")
 def _v_slide(start_pos: int, end_pos: int, samples: int) -> list[tuple[float, float]]:
@@ -112,7 +105,7 @@ def _v_slide(start_pos: int, end_pos: int, samples: int) -> list[tuple[float, fl
     first_leg = _line_points((sx, sy), center, half + 1)
     second_leg = _line_points(center, (ex, ey), samples - half)[1:]
     points = first_leg + second_leg
-    return _with_tangent_angles(points, pivot_index=half)
+    return _with_tangent_angles(points)
 
 def _arc(start_pos: int, end_pos: int, samples: int, CCW: bool, shortest: bool) -> list[tuple[float, float]]:
     start_angle = config.lane_angle(start_pos)
