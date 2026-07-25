@@ -109,20 +109,24 @@ class SlideVisual:
         if self.tracer is None:
             group = pyglet.graphics.Group(order=draw_order(config.TAP_LAYER, note.time))
             self.tracer = pyglet.sprite.Sprite(self.tracer_image, batch=self.batch, group=group)
-            self.tracer.rotation = face_center_rotation(note.position)
             self.tracer.opacity = 0
 
         is_moving = note.slide_time and t >= note.slide_start_time and self.path is not None
+        slide_progress = 0.0
+        if is_moving:
+            slide_progress = max(0.0, min(1.0, (t - note.slide_start_time) / note.slide_time))
+
+        if self.path is not None:
+            path_x, path_y, path_angle = self.path.head_position(slide_progress)
+            self.tracer.rotation = path_angle - 90
+        else:
+            self.tracer.rotation = face_center_rotation(note.position)
 
         if is_moving:
             self.tracer.opacity = 255
-
-            progress = max(0.0, min(1.0, (t - note.slide_start_time) / note.slide_time))
-            x, y, angle = self.path.head_position(progress)
-            self.tracer.x, self.tracer.y = x, y
-            self.tracer.rotation = (angle - 90)
+            self.tracer.x, self.tracer.y = path_x, path_y
             self.tracer.scale = 1.5
-            self.path.consume(progress)
+            self.path.consume(slide_progress)
         else:
             fade_duration = note.slide_start_time - note.time
             tracer_progress = ((t - note.time) / fade_duration) if fade_duration > 0 else 1.0
