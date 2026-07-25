@@ -43,10 +43,12 @@ class SlidePathVisual:
             self.sprites.append(sprite)
         self._consumed = 0
 
-    def head_position(self, progress: float) -> tuple[float, float]:
+    def head_position(self, progress: float) -> tuple[float, float, float]:
+        """Same tangent-angle model the arrows use (_with_tangent_angles in
+        slide_path.py), so the tracer star can rotate the same way they do."""
         dist = max(0.0, min(1.0, progress)) * self.total_length
-        x, y, _ = sample_at_distance(self.path, self.lengths, dist)
-        return x, y
+        x, y, angle = sample_at_distance(self.path, self.lengths, dist)
+        return x, y, angle
 
     def set_opacity(self, fraction: float) -> None:
         """Set every still-existing arrow's opacity uniformly (0.0-1.0)."""
@@ -116,8 +118,9 @@ class SlideVisual:
             self.tracer.opacity = 255
 
             progress = max(0.0, min(1.0, (t - note.slide_start_time) / note.slide_time))
-            x, y = self.path.head_position(progress)
+            x, y, angle = self.path.head_position(progress)
             self.tracer.x, self.tracer.y = x, y
+            self.tracer.rotation = (angle - 90)
             self.tracer.scale = 1.5
             self.path.consume(progress)
         else:

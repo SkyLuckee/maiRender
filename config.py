@@ -1,5 +1,6 @@
 """Configuration constants for the maimai chart renderer."""
 import math
+import os
 
 WIDTH = 1080
 HEIGHT = 1080
@@ -32,6 +33,8 @@ CENTER_Y = HEIGHT // 2
 # Sprites are loaded via pyglet.resource, which resolves relative to
 # whatever pyglet.resource.path is set to (see main.py).
 ASSET_DIR = "assets"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEST_DIR = os.path.join(SCRIPT_DIR, "testing")
 
 # Misc
 RING_SIZE = 980
@@ -68,7 +71,7 @@ def note_variant(note, is_each: bool = False, is_break: bool | None = None) -> s
         is_break = note.is_break
     if is_break:
         return f"{base}_break"
-    if is_each:
+    elif is_each:
         return f"{base}_each"
     return base
 
