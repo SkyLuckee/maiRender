@@ -90,7 +90,7 @@ def main(chart_path: str) -> None:
     player = pyglet.media.Player()
     player.queue(music)
     player.loop = False
-    player.volume = 0.6
+    player.volume = 0.25
     player.play()
 
     renderer = NoteRenderer(chart.notes, batch, images)

@@ -97,7 +97,7 @@ class NoteRenderer:
         for idx, visual in self._visuals.items():
             note = self.notes[idx]
             visual.update(t, note)
-            if t > note.end_time + 0.05:
+            if t > note.end_time + 0.016:
                 expired.append(idx)
 
         for idx in expired:

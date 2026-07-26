@@ -157,8 +157,8 @@ def _sz_slide(start_pos: int, end_pos: int, samples: int, z: bool) -> list[tuple
     base = (samples - 1) // 3
     remainder = (samples - 1) - base * 3
 
-    first_leg = _line_points((sx, sy), (fwx, fwy), base + remainder + 1)
-    second_leg = _line_points((fwx, fwy), (swx, swy), base + 1)[1:]
+    first_leg = _line_points((sx, sy), (fwx, fwy), base  + 1)
+    second_leg = _line_points((fwx, fwy), (swx, swy), base + remainder + 1)[1:]
     third_leg = _line_points((swx, swy), (ex, ey), base + 1)[1:]
 
     points = first_leg + second_leg + third_leg
