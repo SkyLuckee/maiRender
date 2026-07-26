@@ -1,28 +1,40 @@
 # maiRender
 
-maimai chart-visualizer project.
-Takes a JSON chart export (flattened `timingList`) and animates notes approaching a judgment ring.
+maimai chart-visualizer project using pyglet.
+Takes a JSON chart export and animates notes approaching a judgment ring.
 Powered using shitcode and AI
 
-## Layout
-
-- `config.py` - window size, timing constants, ring/lane geometry
+## File structure
+- `config.py` - window size, timing constants, ring/lane geometry and sprite dict
 - `chart.py` - loads a chart JSON, flattens it into a sorted `list[Note]`
-- `renderer.py` - owns the on-screen shapes, updates positions each frame
-- `main.py` - window setup, clock loop, wires everything together
+- `note_renderer.py` - owns the on-screen shapes, updates positions each frame
+- `main.py` - window setup, clock loop, pause control, chart loading, wires everything together ...
 - `slide_path.py` - dedicated script for slide generation
+- `slide_render.py` - star head, "tracer star", movement, and opacity logic 
+- `tap_render.py` - dedicated script for tap generation, reused to also generate star head
+- `hold_render.py` - dedicated script for hold note
+- `render_common` - common function for note generation
 
-## Sprites
-
-Notes render as `pyglet.sprite.Sprite` objects loaded from `assets/`.
-Images are loaded once via `pyglet.resource` (see `load_note_images()` in `renderer.py`) and reused for the life of each note.
+## How to use
+Put your chart.json and track.mp3 into the same folder. Run the script and choose the json.
+**TODO:** add a wrapper so the script can read txt directly
 
 ## Status
-
-**TODO**
-- [ ] audio playback / sync
-- [ ] ppqq , w slide
+Basic feature
+- [x] audio playback / sync and pause control
 - [ ] video export
+- [ ] sound effects
+- [ ] background video
+
+STD Feature
+- [x] tap, break, star head
+- [x] hold note
+- [ ] slide (missing wifi slide rn)
+
+DX Feature
 - [ ] touch note
 - [ ] compound slide
 - [ ] hanabi
+
+Other?
+- [ ] HS, SV
