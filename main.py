@@ -41,16 +41,49 @@ elapsed_label = pyglet.text.Label(
     batch=batch
 )
 
+# shown only while paused
+paused_label = pyglet.text.Label(
+    text="PAUSED",
+    font_name="Times New Roman",
+    font_size=24,
+    x=50,
+    y=85,
+    anchor_x="left",
+    anchor_y="center",
+    color=(255, 80, 80, 255),
+    batch=batch,
+)
+paused_label.visible = False
+paused = False
+
 player: pyglet.media.Player | None = None
 def update(dt: float) -> None:
     global renderer, player
 
-    if player is None:
+    if player is None or paused:
         return
     current_time = player.time
 
     renderer.update(current_time)
     elapsed_label.text = f"{current_time:.3f}"
+
+def toggle_pause() -> None:
+    """pauses the audio player itself (not just the render loop),
+    since renderer.update() reads player.time directly as its clock ..."""
+    global paused
+    if player is None:
+        return
+    paused = not paused
+    if paused:
+        player.pause()
+    else:
+        player.play()
+    paused_label.visible = paused
+
+@window.event
+def on_key_press(symbol, modifiers):
+    if symbol == pyglet.window.key.SPACE:
+        toggle_pause()
 
 
 @window.event
