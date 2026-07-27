@@ -99,7 +99,10 @@ class SlideVisual:
             self.path.set_opacity(path_progress)
 
         if t < note.time:
-            self.head.update(t, note)
+            if self.path is not None:
+                self.head.update(t, note, self.path.total_length)
+            else: 
+                self.head.update(t, note)
             return
 
         if self.head is not None:

@@ -13,6 +13,8 @@ from chart import Note
 from tap_render import TapVisual
 from hold_render import HoldVisual, slice_hold_regions, HOLD_VARIANTS
 from slide_render import SlideVisual
+from touch_render import TouchVisual
+from touchhold_render import TouchHoldVisual
 
 
 def load_note_images() -> dict[str, pyglet.image.AbstractImage]:
@@ -31,7 +33,11 @@ def load_note_images() -> dict[str, pyglet.image.AbstractImage]:
             img.anchor_x = img.width // 2 - 9
         else:
             img.anchor_x = img.width // 2
-        img.anchor_y = img.height // 2
+
+        if variant in ("slice"):
+            img.anchor_y = img.height - 17
+        else:
+            img.anchor_y = img.height // 2
         images[variant] = img
     return images
 
@@ -47,7 +53,7 @@ class NoteRenderer:
         self.batch = batch
         self.images = images
         self._next_index = 0
-        self._visuals: dict[int, TapVisual | HoldVisual | SlideVisual] = {}
+        self._visuals: dict[int, TapVisual | HoldVisual | SlideVisual | TouchVisual | TouchHoldVisual] = {}
 
     def update(self, t: float) -> None:
         while self._next_index < len(self.notes):
@@ -85,6 +91,24 @@ class NoteRenderer:
                 else:
                     path_image = self.images["slide"]
                 visual = SlideVisual(note, head_image, tracer_image, path_image, self.batch)
+
+            elif note.type == 3:
+                point_variant = config.note_variant(note, is_each = note.is_each)
+                point_image = self.images.get(point_variant, self.images["tap"])
+
+                if note.is_each:
+                    slice_image = self.images["slice_each"]
+                else:
+                    slice_image = self.images["slice"]
+
+                visual = TouchVisual(note, point_image, slice_image, note.touch_area, self.batch)
+
+            elif note.type == 4:
+                point_variant = config.note_variant(note, is_each = note.is_each)
+                point_image = self.images.get(point_variant, self.images["tap"])
+
+                visual = TouchHoldVisual(note, point_image, note.touch_area, self.batch)
+                
             else:
                 variant = config.note_variant(note, is_each=note.is_each)
                 image = self.images.get(variant, self.images["tap"])

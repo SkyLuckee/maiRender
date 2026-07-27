@@ -25,11 +25,12 @@ class Note:
     slide_waypoints: Optional[list[int]] = None
     is_slide_each: bool = False
     is_slide_break: bool = False
+    touch_area: Optional[str] = None
 
     @property
     def end_time(self) -> float:
         """Time at which this note is fully resolved (for holds/slides)."""
-        if self.type == 2 and self.hold_time is not None:
+        if (self.type == 2 or self.type == 4)and self.hold_time is not None:
             return self.time + self.hold_time
         if self.type == 1 and self.slide_start_time is not None and self.slide_time is not None:
             return self.slide_start_time + self.slide_time
@@ -84,7 +85,8 @@ def load_chart(path: str) -> Chart:
                     slide_shape=slide_shape,
                     slide_waypoints=slide_waypoints,
                     is_slide_each = is_slide_each,
-                    is_slide_break = n.get("IsSlideBreak", False)
+                    is_slide_break = n.get("IsSlideBreak", False),
+                    touch_area=n.get("TouchArea")
                 )
             )
 

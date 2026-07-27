@@ -19,10 +19,11 @@ class TapVisual:
     def __init__(self, note, image, batch: pyglet.graphics.Batch):
         group = pyglet.graphics.Group(order=draw_order(config.TAP_LAYER, note.time))
         self.sprite = pyglet.sprite.Sprite(image, batch=batch, group=group)
-        self.sprite.rotation = face_center_rotation(note.position)
+        self.base_rotation = face_center_rotation(note.position) 
+        self.sprite.rotation = self.base_rotation
         self.sprite.scale = 0.0
 
-    def update(self, t: float, note) -> None:
+    def update(self, t: float, note, length = None) -> None:
         spawn_start = note.time - 2 * config.APPROACH_TIME
         move_start = note.time - config.APPROACH_TIME
 
@@ -38,6 +39,21 @@ class TapVisual:
             x, y = config.lane_xy(note.position, radius)
 
         self.sprite.x, self.sprite.y = x, y
+        # TODO apply a rotation function for star head on top of face_center_rotation
+        # maybe like this: Rotation speed = Total length of path / (Total slide time * 15 * pi)
+        # length path in pixel, time in mili, unit is degree per frame, max 18
+        # use total_length from class slidepathvisual and note.slidetime
+        # rotation speed = 1 means 180 degrees per second
+        # so deltaRot = (-180 * RotateSpeed)/FPS
+        # need a lot more testing so formula should be flexible to changes
+        # star should start rotating immediately at spawn_time
+        if length is not None and note.slide_time is not None:
+            rotation_speed = length / (note.slide_time * 2 * 3.14159)
+            degrees_per_sec = -180 * rotation_speed
+            elapsed = max(0.0, t - spawn_start)
+            self.sprite.rotation = self.base_rotation + degrees_per_sec * elapsed
+        else:
+            self.sprite.rotation = self.base_rotation
 
     def delete(self) -> None:
         self.sprite.delete()

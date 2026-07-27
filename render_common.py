@@ -20,7 +20,7 @@ def draw_order(tier: int, note_time: float) -> float:
 
 
 def cumulative_lengths(path) -> list[float]:
-    """Running arc-length total up to each point in `path`."""
+    """Calculate line length between point on a path cumulatively"""
     lengths = [0.0]
     for i in range(1, len(path)):
         x0, y0, _ = path[i - 1]
