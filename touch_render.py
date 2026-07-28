@@ -9,7 +9,6 @@ import config
 from render_common import draw_order
 from slide_path import _circle_points
 
-# TODO implement touch note
 class TouchVisual:
     """1 touch point sprite and a group of 4 sprites of touch slices.
     All slices behave indentically apart from their rotation and position.
@@ -28,21 +27,26 @@ class TouchVisual:
             s.rotation = i * (360 / 4)
 
         self.area = area
-        self.slice_radius = 35
+        self.slice_radius = 40
 
     def update(self, t: float, note) -> None:
-        spawn_start = note.time - 2 * config.APPROACH_TIME
-        move_start = note.time - 1.2 * config.APPROACH_TIME
+        spawn_start = note.time - config.TOUCH_APPROACH_TIME
+        move_start = note.time - 0.8 * config.TOUCH_APPROACH_TIME
 
         px, py = config.lane_xy(note.position - 0.5 if self.area in ("D","E") else note.position, config.SENSOR_RADIUS[self.area])
         if t < move_start:
-            opacity_progress = (t - spawn_start) / config.APPROACH_TIME
-            value = int(max(0.0, min(1.0, opacity_progress)) * 255)
+            opacity_progress = (t - spawn_start) / (config.TOUCH_APPROACH_TIME*0.2)
+            opacity_progress = max(0.0, min(1.0, opacity_progress))
+            value = int(opacity_progress * 255)
             radius = self.slice_radius
         else:
-            move_progress = (t - move_start) / config.APPROACH_TIME
+            timing = t - move_start
+            pow = -math.exp(8 * ((-timing + 0.067) * 0.43 / (config.TOUCH_APPROACH_TIME*0.8)) - 0.85) + 0.42
+            distance = max(0.0, min(0.4, pow))
+
             value = 255
-            radius = self.slice_radius * (1 - move_progress)
+            radius = self.slice_radius - distance*100
+            print(radius)
 
         self.point.opacity = value
         for s in self.slices:
@@ -57,7 +61,3 @@ class TouchVisual:
         self.point.delete()
         for s in self.slices:
             s.delete()
-
-# coord = _circle_points((540,540), 0.5, math.pi*1.5, 0, False, 4)
-# for i in coord:
-#     print(i[0])

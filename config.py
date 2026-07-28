@@ -8,6 +8,7 @@ HEIGHT = 1080
 SCREEN_RADIUS = HEIGHT / 2
 FPS = 60
 TAP_SPEED = 8
+TOUCH_SPEED = 8
 TRACK_VOLUME = 0.5
 
 # For positioning
@@ -31,6 +32,7 @@ PPQQ_HYP = 220.1537394 # distance from ppqq center point to the origin
 
 # How many seconds before a note's hit time it should first appear on screen.
 APPROACH_TIME = 2.4 / TAP_SPEED # 300ms for speed 8
+TOUCH_APPROACH_TIME = 3.209385682 * (TOUCH_SPEED** -0.9549621752) # 440ms for speed 8
 # print(APPROACH_TIME)
 
 CENTER_X = WIDTH // 2

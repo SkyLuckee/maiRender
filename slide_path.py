@@ -119,6 +119,8 @@ def _arc(start_pos: int, end_pos: int, samples: int, CCW: bool, shortest: bool) 
         else:
             if CCW:
                 diff -= 2 * math.pi
+        if diff == 0:
+                diff = 2 * math.pi
     else:
         if diff > math.pi:
             diff -= 2 * math.pi

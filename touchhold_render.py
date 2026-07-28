@@ -9,7 +9,6 @@ import config
 from render_common import draw_order
 from slide_path import _circle_points
 
-# TODO implement touch hold note
 class TouchHoldVisual:
     """1 touch point sprite and a group of 4 different sprites of touch hold slices.
     All slices behave indentically apart from their rotation, position and sprite.
@@ -39,22 +38,25 @@ class TouchHoldVisual:
         self.border = pyglet.sprite.Sprite(border_image, batch=batch, group=border_group)
 
         self.area = area
-        self.slice_radius = 35
+        self.slice_radius = 40
 
     def update(self, t: float, note) -> None:
-        spawn_start = note.time - 2 * config.APPROACH_TIME
-        move_start = note.time - 1.2 * config.APPROACH_TIME
+        spawn_start = note.time - config.TOUCH_APPROACH_TIME
+        move_start = note.time - 0.8 * config.TOUCH_APPROACH_TIME
 
         px, py = config.lane_xy(note.position - 0.5 if self.area in ("D","E") else note.position, config.SENSOR_RADIUS[self.area])
         if t < move_start:
-            opacity_progress = (t - spawn_start) / config.APPROACH_TIME
-            value = int(max(0.0, min(1.0, opacity_progress)) * 255)
+            opacity_progress = (t - spawn_start) / (config.TOUCH_APPROACH_TIME*0.2)
+            opacity_progress = max(0.0, min(1.0, opacity_progress))
+            value = int(opacity_progress * 255)
             radius = self.slice_radius
         else:
-            move_progress = (t - move_start) / config.APPROACH_TIME
-            move_progress = max(0.0, min(1.0, move_progress))
+            timing = t - move_start
+            pow = -math.exp(8 * ((-timing + 0.067) * 0.43 / (config.TOUCH_APPROACH_TIME*0.8)) - 0.85) + 0.42
+            distance = max(0.0, min(0.4, pow))
+
             value = 255
-            radius = self.slice_radius * (1 - move_progress)
+            radius = self.slice_radius - distance*100
 
         border_start = note.time
         border_progress = (t - border_start) / (note.end_time - border_start)

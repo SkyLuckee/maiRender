@@ -34,8 +34,8 @@ def load_note_images() -> dict[str, pyglet.image.AbstractImage]:
         else:
             img.anchor_x = img.width // 2
 
-        if variant in ("slice"):
-            img.anchor_y = img.height - 17
+        if variant in ("slice", "slice_each"):
+            img.anchor_y = img.height - 15
         else:
             img.anchor_y = img.height // 2
         images[variant] = img
@@ -84,10 +84,10 @@ class NoteRenderer:
                 )
                 tracer_image = self.images.get(tracer_variant, self.images["tap"])
 
-                if note.is_slide_each:
-                    path_image = self.images["slide_each"]
-                elif note.is_slide_break:
+                if note.is_slide_break:
                     path_image = self.images["slide_break"]
+                elif note.is_slide_each:
+                    path_image = self.images["slide_each"]
                 else:
                     path_image = self.images["slide"]
                 visual = SlideVisual(note, head_image, tracer_image, path_image, self.batch)
