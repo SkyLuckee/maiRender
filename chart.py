@@ -14,7 +14,7 @@ _SLIDE_PATTERN = re.compile(r"^\d([^\d\[]+)(\d+)\[[^\]]*\]$")
 class Note:
     time: float
     position: int
-    type: int  # 0 = tap, 1 = slide, 2 = hold
+    type: int 
     raw_content: str
     is_break: bool = False
     is_each: bool = False
@@ -101,8 +101,3 @@ def load_chart(path: str) -> Chart:
         level=data.get("level", ""),
         notes=notes,
     )
-if __name__ == "__main__":
-    import sys
-    chart_path = sys.argv[1] if len(sys.argv) > 1 else "maigraph_MASTER.json"
-    a = load_chart(chart_path)
-    print(a)

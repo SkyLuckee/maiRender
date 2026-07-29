@@ -46,7 +46,6 @@ class TouchVisual:
 
             value = 255
             radius = self.slice_radius - distance*100
-            print(radius)
 
         self.point.opacity = value
         for s in self.slices:
