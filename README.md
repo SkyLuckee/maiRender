@@ -13,7 +13,8 @@ Powered using shitcode and AI
 - `slide_render.py` - star head, "tracer star", movement, and opacity logic 
 - `tap_render.py` - dedicated script for tap generation, reused to also generate star head
 - `hold_render.py` - dedicated script for hold note
-- `render_common` - common function for note generation
+- `render_common.py` - common function for note generation
+- `compound_slide_path.py` - dedicated script to handle compound slide
 
 ## How to use
 Put your chart.json and track.mp3 into the same folder. Run the script and choose the json.
@@ -32,8 +33,8 @@ STD Feature
 - [ ] slide (missing wifi slide rn)
 
 DX Feature
-- [ ] touch note
-- [ ] compound slide
+- [x] touch note
+- [x] compound slide
 - [ ] hanabi
 
 Other?

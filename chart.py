@@ -4,6 +4,8 @@ from typing import Optional
 import json
 import re
 
+from compound_slide_path import parse_compound_slide
+
 # Matches slide RawContent like "3<6[8:1]" or "1V37[8:1]":
 #   start digit, shape token, one-or-more end digits, "[...]" (anything
 #   inside the brackets, un-parsed)
@@ -23,6 +25,7 @@ class Note:
     slide_time: Optional[float] = None
     slide_shape: Optional[str] = None
     slide_waypoints: Optional[list[int]] = None
+    slide_segments: Optional[list[tuple[str, int]]] = None
     is_slide_each: bool = False
     is_slide_break: bool = False
     touch_area: Optional[str] = None
@@ -68,9 +71,13 @@ def load_chart(path: str) -> Chart:
         is_slide_each = sum(1 for n in entry["Notes"] if n["Type"] == 1) > 1
 
         for n in entry["Notes"]:
-            slide_shape, slide_waypoints = (
-                _parse_slide_shape(n["RawContent"]) if n["Type"] == 1 else (None, None)
-            )
+            slide_shape, slide_waypoints = (_parse_slide_shape(n["RawContent"]) if n["Type"] == 1 else (None, None))
+            # Ordinary single-shape parsing rejects compound slides (a shape
+            # token repeated before every end digit, e.g. "1-3-5-7[8:1]"),
+            # so fall back to the compound parser for those.
+            slide_segments = None
+            if n["Type"] == 1 and slide_shape is None:
+                slide_segments = parse_compound_slide(n["RawContent"])
             notes.append(
                 Note(
                     time=time,
@@ -84,6 +91,7 @@ def load_chart(path: str) -> Chart:
                     slide_time=n.get("SlideTime"),
                     slide_shape=slide_shape,
                     slide_waypoints=slide_waypoints,
+                    slide_segments=slide_segments,
                     is_slide_each = is_slide_each,
                     is_slide_break = n.get("IsSlideBreak", False),
                     touch_area=n.get("TouchArea")

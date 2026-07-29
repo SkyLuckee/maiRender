@@ -70,7 +70,7 @@ class NoteRenderer:
                     self.images[f"{variant}_tail"],
                     self.batch,
                 )
-            elif note.type == 1 and note.slide_shape is not None:
+            elif note.type == 1 and (note.slide_shape is not None or note.slide_segments):
                 head_variant = config.note_variant(note, is_each=note.is_each)
                 head_image = self.images.get(head_variant, self.images["tap"])
 

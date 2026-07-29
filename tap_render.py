@@ -47,13 +47,7 @@ class TapVisual:
         # so deltaRot = (-180 * RotateSpeed)/FPS
         # need a lot more testing so formula should be flexible to changes
         # star should start rotating immediately at spawn_time
-        if length is not None and note.slide_time is not None:
-            rotation_speed = length / (note.slide_time * 2 * 3.14159)
-            degrees_per_sec = -180 * rotation_speed
-            elapsed = max(0.0, t - spawn_start)
-            self.sprite.rotation = self.base_rotation + degrees_per_sec * elapsed
-        else:
-            self.sprite.rotation = self.base_rotation
+
 
     def delete(self) -> None:
         self.sprite.delete()

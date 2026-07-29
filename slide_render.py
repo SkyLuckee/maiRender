@@ -7,18 +7,47 @@ import pyglet
 
 import config
 from render_common import draw_order, face_center_rotation, cumulative_lengths, sample_at_distance
-from slide_path import build_path
+from slide_path import build_path, SAMPLES_PER_SEGMENT
+from compound_slide_path import build_compound_path
 from tap_render import TapVisual
 
 
-def _slide_placements(path, lengths, spacing: float):
-    total = lengths[-1]
+def _leg_boundaries(lengths: list[float], num_legs: int) -> list[float]:
+    """Cumulative arc-length at the end of each leg of a (possibly
+    compound) slide path.
+
+    Every leg contributes exactly SAMPLES_PER_SEGMENT points to the path
+    (whichever handler built it), and every leg after the first drops its
+    shared first point when concatenated onto the previous one -- so
+    leg k's last point always sits at path index
+    (k + 1) * (SAMPLES_PER_SEGMENT - 1), regardless of that leg's shape.
+    """
+    S = SAMPLES_PER_SEGMENT
+    last_index = len(lengths) - 1
+    return [lengths[min((k + 1) * (S - 1), last_index)] for k in range(num_legs)]
+
+
+def _slide_placements(path, lengths, spacing: float, leg_boundaries: list[float]):
+    """Place arrows at `spacing` intervals, restarting at each leg
+    boundary so skipping the arrow right at the start (covered by the head/previous leg's
+    endpoint) and never placing one too close to the end
+
+    Returns (placements, distances) as parallel lists, where `distances`
+    is each placement's actual arc-length distance from the path start
+    (not assumed to be a uniform multiple of `spacing` any more, since a
+    leg's own length need not be an exact multiple of it)."""
     placements = []
-    dist = 0.0
-    while total - dist >= spacing / 2:
-        placements.append(sample_at_distance(path, lengths, dist))
-        dist += spacing
-    return placements
+    distances = []
+    leg_start = 0.0
+    for boundary in leg_boundaries:
+        leg_length = boundary - leg_start
+        dist = spacing  # skip this leg's own first arrow (its own start / shared waypoint)
+        while leg_length - dist >= spacing / 2:
+            placements.append(sample_at_distance(path, lengths, leg_start + dist))
+            distances.append(leg_start + dist)
+            dist += spacing
+        leg_start = boundary
+    return placements, distances
 
 """Offset between consecutive arrows' draw order, layered on top of the
 slide's own base order"""
@@ -28,15 +57,23 @@ class SlidePathVisual:
     """A chain of arrow sprites tracing one slide's path, consumed in order
     as the star travels along it."""
     def __init__(self, note, image, batch: pyglet.graphics.Batch):
-        self.path = build_path(note.position, note.slide_waypoints or [], note.slide_shape or "-")
+        if note.slide_segments:
+            # Compound slide's built once here and treated identically to
+            # a simple slide's path - only the arrow placement below still
+            # needs to know the individual segment boundaries.
+            self.path = build_compound_path(note.position, note.slide_segments)
+            num_legs = len(note.slide_segments)
+        else:
+            self.path = build_path(note.position, note.slide_waypoints or [], note.slide_shape or "-")
+            num_legs = 1
         self.lengths = cumulative_lengths(self.path)
         self.total_length = self.lengths[-1]
-        placements = _slide_placements(self.path, self.lengths, config.SLIDE_SPACING)
-        visible_placements = placements[1:] # skip first arrow
+        leg_boundaries = _leg_boundaries(self.lengths, num_legs)
+        placements, distances = _slide_placements(self.path, self.lengths, config.SLIDE_SPACING, leg_boundaries)
+        self.distances = distances
         self.sprites = []
-        self.distances = [(i + 1) * config.SLIDE_SPACING for i in range(len(visible_placements))]
         base_order = draw_order(config.SLIDE_LAYER, note.time)
-        for i, (x, y, angle) in enumerate(visible_placements):
+        for i, (x, y, angle) in enumerate(placements):
             group = pyglet.graphics.Group(order=base_order - i * ARROW_ORDER_EPSILON)
             sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=group)
             sprite.rotation = angle
