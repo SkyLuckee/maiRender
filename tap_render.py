@@ -6,11 +6,13 @@ behave identically until a slide starts moving along its path: scale in
 """
 
 from __future__ import annotations
+import math
 import pyglet
 
 import config
 from render_common import face_center_rotation, draw_order
 
+MAX_ROTATION_PER_FRAME = 18.0
 
 class TapVisual:
     """A single sprite: scales in at the spawn location, then approaches
@@ -22,6 +24,8 @@ class TapVisual:
         self.base_rotation = face_center_rotation(note.position) 
         self.sprite.rotation = self.base_rotation
         self.sprite.scale = 0.0
+        # extra spin on top of base_rotation when being a star head
+        self._spin_offset = 0.0
 
     def update(self, t: float, note, length = None) -> None:
         spawn_start = note.time - 2 * config.APPROACH_TIME
@@ -39,15 +43,17 @@ class TapVisual:
             x, y = config.lane_xy(note.position, radius)
 
         self.sprite.x, self.sprite.y = x, y
-        # TODO apply a rotation function for star head on top of face_center_rotation
-        # maybe like this: Rotation speed = Total length of path / (Total slide time * 15 * pi)
-        # length path in pixel, time in mili, unit is degree per frame, max 18
-        # use total_length from class slidepathvisual and note.slidetime
-        # rotation speed = 1 means 180 degrees per second
-        # so deltaRot = (-180 * RotateSpeed)/FPS
-        # need a lot more testing so formula should be flexible to changes
-        # star should start rotating immediately at spawn_time
+        # Star head spin: only applies when we're being driven as a slide's
+        # head (caller passes the path's total length), and starts right
+        # away at spawn_time rather than waiting for move_start.
+        if length is not None and note.slide_time:
+            rotate_speed = length / (note.slide_time * 15 * 13 * math.pi)
+            rotate_speed = max(-MAX_ROTATION_PER_FRAME, min(MAX_ROTATION_PER_FRAME, rotate_speed))
+            delta_rot = (-180 * rotate_speed) / config.FPS
+            print(length, note.slide_time, rotate_speed, delta_rot)
+            self._spin_offset += delta_rot
 
+        self.sprite.rotation = self.base_rotation + self._spin_offset
 
     def delete(self) -> None:
         self.sprite.delete()

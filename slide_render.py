@@ -125,6 +125,11 @@ class SlideVisual:
         self.batch = batch
         self.path: SlidePathVisual | None = None
         self.tracer: pyglet.sprite.Sprite | None = None
+        if note.slide_segments:
+            raw_path = build_compound_path(note.position, note.slide_segments)
+        else:
+            raw_path = build_path(note.position, note.slide_waypoints or [], note.slide_shape or "-")
+        self.total_length = cumulative_lengths(raw_path)[-1]
 
     def update(self, t: float, note) -> None:
         move_start = note.time - config.APPROACH_TIME
@@ -136,10 +141,7 @@ class SlideVisual:
             self.path.set_opacity(path_progress)
 
         if t < note.time:
-            if self.path is not None:
-                self.head.update(t, note, self.path.total_length)
-            else: 
-                self.head.update(t, note)
+            self.head.update(t, note, self.total_length)
             return
 
         if self.head is not None:

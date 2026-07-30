@@ -30,7 +30,7 @@ def load_note_images() -> dict[str, pyglet.image.AbstractImage]:
             continue
 
         if variant in ("slide", "slide_each","slide_break"):
-            img.anchor_x = img.width // 2 - 9
+            img.anchor_x = img.width - 43
         else:
             img.anchor_x = img.width // 2
 
