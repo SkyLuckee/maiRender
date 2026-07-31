@@ -50,7 +50,7 @@ class TapVisual:
             rotate_speed = length / (note.slide_time * 15 * 13 * math.pi)
             rotate_speed = max(-MAX_ROTATION_PER_FRAME, min(MAX_ROTATION_PER_FRAME, rotate_speed))
             delta_rot = (-180 * rotate_speed) / config.FPS
-            print(length, note.slide_time, rotate_speed, delta_rot)
+            # print(length, note.slide_time, rotate_speed, delta_rot)
             self._spin_offset += delta_rot
 
         self.sprite.rotation = self.base_rotation + self._spin_offset

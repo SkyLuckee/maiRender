@@ -7,29 +7,15 @@ import pyglet
 
 import config
 from render_common import draw_order, face_center_rotation, cumulative_lengths, sample_at_distance
-from slide_path import build_path, SAMPLES_PER_SEGMENT
+from slide_path import build_path
 from compound_slide_path import build_compound_path
 from tap_render import TapVisual
 
 
-def _leg_boundaries(lengths: list[float], num_legs: int) -> list[float]:
-    """Cumulative arc-length at the end of each leg of a (possibly
-    compound) slide path.
-
-    Every leg contributes exactly SAMPLES_PER_SEGMENT points to the path
-    (whichever handler built it), and every leg after the first drops its
-    shared first point when concatenated onto the previous one -- so
-    leg k's last point always sits at path index
-    (k + 1) * (SAMPLES_PER_SEGMENT - 1), regardless of that leg's shape.
-    """
-    S = SAMPLES_PER_SEGMENT
-    last_index = len(lengths) - 1
-    return [lengths[min((k + 1) * (S - 1), last_index)] for k in range(num_legs)]
-
-
 def _slide_placements(path, lengths, spacing: float, leg_boundaries: list[float]):
     """Place arrows at `spacing` intervals, restarting at each leg
-    boundary so skipping the arrow right at the start (covered by the head/previous leg's
+    boundary so both trims a single slide already got -- skipping the
+    arrow right at the start (covered by the head/previous leg's
     endpoint) and never placing one too close to the end
 
     Returns (placements, distances) as parallel lists, where `distances`
@@ -58,17 +44,13 @@ class SlidePathVisual:
     as the star travels along it."""
     def __init__(self, note, image, batch: pyglet.graphics.Batch):
         if note.slide_segments:
-            # Compound slide's built once here and treated identically to
-            # a simple slide's path - only the arrow placement below still
-            # needs to know the individual segment boundaries.
-            self.path = build_compound_path(note.position, note.slide_segments)
-            num_legs = len(note.slide_segments)
+            self.path, leg_boundary_indices = build_compound_path(note.position, note.slide_segments)
         else:
             self.path = build_path(note.position, note.slide_waypoints or [], note.slide_shape or "-")
-            num_legs = 1
+            leg_boundary_indices = [len(self.path) - 1]
         self.lengths = cumulative_lengths(self.path)
         self.total_length = self.lengths[-1]
-        leg_boundaries = _leg_boundaries(self.lengths, num_legs)
+        leg_boundaries = [self.lengths[i] for i in leg_boundary_indices]
         placements, distances = _slide_placements(self.path, self.lengths, config.SLIDE_SPACING, leg_boundaries)
         self.distances = distances
         self.sprites = []
@@ -125,11 +107,6 @@ class SlideVisual:
         self.batch = batch
         self.path: SlidePathVisual | None = None
         self.tracer: pyglet.sprite.Sprite | None = None
-        if note.slide_segments:
-            raw_path = build_compound_path(note.position, note.slide_segments)
-        else:
-            raw_path = build_path(note.position, note.slide_waypoints or [], note.slide_shape or "-")
-        self.total_length = cumulative_lengths(raw_path)[-1]
 
     def update(self, t: float, note) -> None:
         move_start = note.time - config.APPROACH_TIME
@@ -141,7 +118,10 @@ class SlideVisual:
             self.path.set_opacity(path_progress)
 
         if t < note.time:
-            self.head.update(t, note, self.total_length)
+            if self.path is not None:
+                self.head.update(t, note, self.path.total_length)
+            else: 
+                self.head.update(t, note)
             return
 
         if self.head is not None:

@@ -77,16 +77,24 @@ def parse_compound_slide(raw_content: str) -> list[Segment] | None:
     return segments
 
 
-def build_compound_path(start_position: int, segments: list[Segment]) -> list[tuple[float, float, float]]:
+def build_compound_path(
+    start_position: int, segments: list[Segment]
+) -> tuple[list[tuple[float, float, float]], list[int]]:
     """Build the full (x, y, angle_degrees) path for a compound slide by
     building each leg with the ordinary per-shape handlers (or _V_slide
     for "V" legs, which needs its middle waypoint and isn't a registered
     shape handler) and concatenating them, dropping each leg's first
-    point (the shared waypoint) so it isn't duplicated."""
+    point (the shared waypoint) so it isn't duplicated.
+
+    Also returns `leg_boundary_indices`: the index into the returned path
+    of each leg's last point (its shared waypoint with the next leg, or
+    the slide's final endpoint for the last leg). Callers need this to
+    know where one leg ends and the next begins"""
     if not segments:
         raise ValueError("Compound slide needs at least one segment")
 
     points: list[tuple[float, float, float]] = []
+    leg_boundary_indices: list[int] = []
     current = start_position
     for shape, waypoints in segments:
         end = waypoints[-1]
@@ -96,7 +104,11 @@ def build_compound_path(start_position: int, segments: list[Segment]) -> list[tu
         else:
             leg_points = _segment(current, end, shape, SAMPLES_PER_SEGMENT)
         if points:
+            shared_x, shared_y, _ = points[-1]
+            _, _, outgoing_angle = leg_points[0]
+            points[-1] = (shared_x, shared_y, outgoing_angle)
             leg_points = leg_points[1:]
         points.extend(leg_points)
+        leg_boundary_indices.append(len(points) - 1)
         current = end
-    return points
+    return points, leg_boundary_indices

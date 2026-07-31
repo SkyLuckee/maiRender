@@ -6,6 +6,7 @@ from tkinter import filedialog
 import pyglet
 
 import config
+from wrapper import wrapper
 from chart import load_chart
 from note_renderer import NoteRenderer, load_note_images
 
@@ -104,14 +105,15 @@ def prompt_for_file():
     return path
 
 
-def main(chart_path: str) -> None:
+def main() -> None:
     global renderer, player
-    chart = load_chart(chart_path)
-    print(f"Loaded {chart.title} [{chart.difficulty} {chart.level}] - {len(chart.notes)} notes")
+    chart_wrapped = wrapper()
+    chart = load_chart(chart_wrapped["results"])
+    # print(f"Loaded {chart.title} [{chart.difficulty} {chart.level}] - {len(chart.notes)} notes")
     images = load_note_images()
 
     # auto find the track.mp3 in the json directory
-    folder = os.path.dirname(chart_path)
+    folder = chart_wrapped["source_dir"]
     track_path = os.path.join(folder, "track.mp3")
 
     if not os.path.exists(track_path):
@@ -132,5 +134,5 @@ def main(chart_path: str) -> None:
 
 
 if __name__ == "__main__":
-    chart_path = prompt_for_file()
-    main(chart_path)
+    # chart_path = prompt_for_file()
+    main()

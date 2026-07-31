@@ -60,9 +60,8 @@ def _parse_slide_shape(raw_content: str) -> tuple[Optional[str], Optional[list[i
 
 
 def load_chart(path: str) -> Chart:
-    """Load a chart JSON file and flatten timingList into a sorted Note list."""
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    """Load a chart directly and flatten timingList into a sorted Note list."""
+    data = path
 
     notes: list[Note] = []
     for entry in data["timingList"]:
