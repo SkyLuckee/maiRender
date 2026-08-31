@@ -10,7 +10,7 @@ import math
 import pyglet
 
 import config
-from render_common import face_center_rotation, draw_order
+from render_common import face_center_rotation, draw_order, clamped_progress
 
 MAX_ROTATION_PER_FRAME = 18.0
 
@@ -32,13 +32,11 @@ class TapVisual:
         move_start = note.time - config.APPROACH_TIME
 
         if t < move_start:
-            scale_progress = (t - spawn_start) / config.APPROACH_TIME
-            self.sprite.scale = max(0.0, min(1.0, scale_progress))
+            self.sprite.scale = clamped_progress(t, spawn_start, config.APPROACH_TIME)
             x, y = config.lane_xy(note.position, config.SPAWN_RADIUS)
         else:
             self.sprite.scale = 1.0
-            head_progress = (t - move_start) / config.APPROACH_TIME
-            head_progress = max(0.0, min(1.0, head_progress))
+            head_progress = clamped_progress(t, move_start, config.APPROACH_TIME)
             radius = config.SPAWN_RADIUS + (config.RING_RADIUS - config.SPAWN_RADIUS) * head_progress
             x, y = config.lane_xy(note.position, radius)
 

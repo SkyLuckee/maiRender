@@ -6,7 +6,7 @@ from __future__ import annotations
 import pyglet
 
 import config
-from render_common import draw_order, face_center_rotation, cumulative_lengths, sample_at_distance
+from render_common import draw_order, face_center_rotation, cumulative_lengths, sample_at_distance, clamped_progress
 from slide_path import build_path
 from compound_slide_path import build_compound_path
 from tap_render import TapVisual
@@ -110,33 +110,56 @@ class SlideVisual:
 
     def update(self, t: float, note) -> None:
         move_start = note.time - config.APPROACH_TIME
+        self._update_path(t, note, move_start)
+
+        if t < note.time:
+            self._update_pre_move_head(t, note)
+            return
+
+        self._retire_head()
+        self._ensure_tracer(note)
+        self._update_tracer(t, note)
+
+    # -- path: created once the approach window opens, faded in over it --
+
+    def _update_path(self, t: float, note, move_start: float) -> None:
         if self.path is None and t >= move_start:
             self.path = SlidePathVisual(note, self.path_image, self.batch)
 
         if self.path is not None:
-            path_progress = (t - move_start) / config.APPROACH_TIME
+            path_progress = clamped_progress(t, move_start, config.APPROACH_TIME)
             self.path.set_opacity(path_progress)
 
-        if t < note.time:
-            if self.path is not None:
-                self.head.update(t, note, self.path.total_length)
-            else: 
-                self.head.update(t, note)
-            return
+    # -- head: unchanged TapVisual approach, but spun using the path's
+    # total_length once the path exists (see tap_render's spin handling) --
 
+    def _update_pre_move_head(self, t: float, note) -> None:
+        if self.path is not None:
+            self.head.update(t, note, self.path.total_length)
+        else:
+            self.head.update(t, note)
+
+    def _retire_head(self) -> None:
+        """Head is only relevant before note.time; once the slide starts
+        moving it's replaced by the tracer and never touched again."""
         if self.head is not None:
             self.head.delete()
             self.head = None
 
+    # -- tracer: takes over from the head at note.time, travels the path
+    # once slide_start_time arrives, otherwise fades in in place --
+
+    def _ensure_tracer(self, note) -> None:
         if self.tracer is None:
             group = pyglet.graphics.Group(order=draw_order(config.TAP_LAYER, note.time))
             self.tracer = pyglet.sprite.Sprite(self.tracer_image, batch=self.batch, group=group)
             self.tracer.opacity = 0
 
+    def _update_tracer(self, t: float, note) -> None:
         is_moving = note.slide_time and t >= note.slide_start_time and self.path is not None
         slide_progress = 0.0
         if is_moving:
-            slide_progress = max(0.0, min(1.0, (t - note.slide_start_time) / note.slide_time))
+            slide_progress = clamped_progress(t, note.slide_start_time, note.slide_time)
 
         if self.path is not None:
             path_x, path_y, path_angle = self.path.head_position(slide_progress)
@@ -151,8 +174,7 @@ class SlideVisual:
             self.path.consume(slide_progress)
         else:
             fade_duration = note.slide_start_time - note.time
-            tracer_progress = ((t - note.time) / fade_duration) if fade_duration > 0 else 1.0
-            tracer_progress = max(0.0, min(1.0, tracer_progress))
+            tracer_progress = clamped_progress(t, note.time, fade_duration)
             self.tracer.opacity = int(tracer_progress * 255)
             x, y = config.lane_xy(note.position, config.RING_RADIUS)
             self.tracer.x, self.tracer.y = x, y

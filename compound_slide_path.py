@@ -37,7 +37,6 @@ _TOKEN_PATTERN = re.compile(r"([^\d\[]+)(\d+)")
 _COMPOUND_SLIDE_PATTERN = re.compile(r"^\d((?:[^\d\[]+\d+)+)\[[^\]]*\]$")
 
 # Shapes whose leg is described by more than one digit, and how many.
-# "V" is a single leg through a middle waypoint to an end waypoint.
 _MULTI_WAYPOINT_SHAPES = {"V": 2}
 
 Segment = tuple[str, tuple[int, ...]]
@@ -75,6 +74,32 @@ def parse_compound_slide(raw_content: str) -> list[Segment] | None:
     if len(segments) < 2:
         return None  # not actually compound -- just one ordinary leg
     return segments
+
+_SIMPLE_SLIDE_PATTERN = re.compile(r"^\d([^\d\[]+)(\d+)\[[^\]]*\]$")
+
+
+def parse_slide(raw_content: str) -> tuple[str | None, list[int] | None, list[Segment] | None]:
+    """Single entry point for turning a slide's RawContent into whichever
+    of the two shapes downstream code understands: a simple (shape,
+    waypoints) pair, or a compound `segments` list. Tries the simple parse
+    first (a single shape token followed by one-or-more end digits) and
+    falls back to the compound parse (a shape token repeated before every
+    leg) if that doesn't match.
+
+    Returns (shape, waypoints, segments) with exactly one of
+    (shape, waypoints) or segments populated -- the other pair is None.
+    Callers store the two halves separately (Note.slide_shape/
+    slide_waypoints vs. Note.slide_segments) rather than needing a tagged
+    union, since that's the shape both slide_path.build_path and
+    compound_slide_path.build_compound_path already expect.
+    """
+    m = _SIMPLE_SLIDE_PATTERN.match(raw_content)
+    if m:
+        shape, end_digits = m.groups()
+        return shape, [int(d) for d in end_digits], None
+
+    segments = parse_compound_slide(raw_content)
+    return None, None, segments
 
 
 def build_compound_path(

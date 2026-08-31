@@ -6,7 +6,7 @@ import pyglet
 import math
 
 import config
-from render_common import draw_order
+from render_common import draw_order, clamped_progress
 from slide_path import _circle_points
 
 class TouchVisual:
@@ -35,8 +35,7 @@ class TouchVisual:
 
         px, py = config.lane_xy(note.position - 0.5 if self.area in ("D","E") else note.position, config.SENSOR_RADIUS[self.area])
         if t < move_start:
-            opacity_progress = (t - spawn_start) / (config.TOUCH_APPROACH_TIME*0.2)
-            opacity_progress = max(0.0, min(1.0, opacity_progress))
+            opacity_progress = clamped_progress(t, spawn_start, config.TOUCH_APPROACH_TIME * 0.2)
             value = int(opacity_progress * 255)
             radius = self.slice_radius
         else:

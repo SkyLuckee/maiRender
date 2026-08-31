@@ -1,12 +1,34 @@
 """Shared math/utility helpers used across the per-note-type renderer modules."""
+from __future__ import annotations
 import math
+from typing import Protocol
 
 import config
 
 
+class Visual(Protocol):
+    """The interface every per-note visual (TapVisual, HoldVisual,
+    SlideVisual, TouchVisual, TouchHoldVisual, ...) implements. NoteRenderer
+    only ever calls these two methods, regardless of note type -- this
+    documents that contract in the type system instead of only in prose,
+    so a new visual class or a typo'd method name is caught by a type
+    checker rather than only surfacing at runtime.
+    """
+
+    def update(self, t: float, note) -> None: ...
+    def delete(self) -> None: ...
+
 def face_center_rotation(position: int) -> float:
     """Sprite rotation (degrees, clockwise) facing inward."""
     return 90 - math.degrees(config.lane_angle(position))
+
+def clamped_progress(t: float, start: float, duration: float) -> float:
+    """Linear progress of `t` through the window [start, start + duration],
+    clamped to [0, 1].
+    """
+    if duration <= 0:
+        return 1.0
+    return max(0.0, min(1.0, (t - start) / duration))
 
 
 def draw_order(tier: int, note_time: float) -> float:

@@ -6,7 +6,7 @@ from __future__ import annotations
 import pyglet
 
 import config
-from render_common import face_center_rotation, draw_order
+from render_common import face_center_rotation, draw_order, clamped_progress
 
 HOLD_VARIANTS = ("hold", "hold_break", "hold_each")
 
@@ -66,19 +66,16 @@ class HoldVisual:
         spawn_start = note.time - 2 * config.APPROACH_TIME
         move_start = note.time - config.APPROACH_TIME
 
-        scale_progress = (t - spawn_start) / config.APPROACH_TIME
-        scale = max(0.0, min(1.0, scale_progress))
+        scale = clamped_progress(t, spawn_start, config.APPROACH_TIME)
         self.head.scale = scale
         self.body.scale = scale
         self.tail.scale = scale
 
-        head_progress = (t - move_start) / config.APPROACH_TIME
-        head_progress = max(0.0, min(1.0, head_progress))
+        head_progress = clamped_progress(t, move_start, config.APPROACH_TIME)
         head_radius = config.SPAWN_RADIUS + (config.RING_RADIUS - config.SPAWN_RADIUS) * head_progress
 
         tail_move_start = note.end_time - config.APPROACH_TIME
-        tail_progress = (t - tail_move_start) / config.APPROACH_TIME
-        tail_progress = max(0.0, min(1.0, tail_progress))
+        tail_progress = clamped_progress(t, tail_move_start, config.APPROACH_TIME)
         tail_radius = config.SPAWN_RADIUS + (config.RING_RADIUS - config.SPAWN_RADIUS) * tail_progress
 
         hx, hy = config.lane_xy(note.position, head_radius)

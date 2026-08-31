@@ -2,14 +2,7 @@
 from dataclasses import dataclass
 from typing import Optional
 import json
-import re
-
-from compound_slide_path import parse_compound_slide
-
-# Matches slide RawContent like "3<6[8:1]" or "1V37[8:1]":
-#   start digit, shape token, one-or-more end digits, "[...]" (anything
-#   inside the brackets, un-parsed)
-_SLIDE_PATTERN = re.compile(r"^\d([^\d\[]+)(\d+)\[[^\]]*\]$")
+from compound_slide_path import parse_slide
 
 
 @dataclass
@@ -50,14 +43,6 @@ class Chart:
     level: str
     notes: list[Note]
 
-def _parse_slide_shape(raw_content: str) -> tuple[Optional[str], Optional[list[int]]]:
-    """Parse a slide RawContent into (shape, waypoints)."""
-    m = _SLIDE_PATTERN.match(raw_content)
-    if not m:
-        return None, None
-    shape, end_digits = m.groups()
-    return shape, [int(d) for d in end_digits]
-
 
 def load_chart(path: str) -> Chart:
     """Load a chart directly and flatten timingList into a sorted Note list."""
@@ -70,13 +55,10 @@ def load_chart(path: str) -> Chart:
         is_slide_each = sum(1 for n in entry["Notes"] if n["Type"] == 1) > 1
 
         for n in entry["Notes"]:
-            slide_shape, slide_waypoints = (_parse_slide_shape(n["RawContent"]) if n["Type"] == 1 else (None, None))
-            # Ordinary single-shape parsing rejects compound slides (a shape
-            # token repeated before every end digit, e.g. "1-3-5-7[8:1]"),
-            # so fall back to the compound parser for those.
-            slide_segments = None
-            if n["Type"] == 1 and slide_shape is None:
-                slide_segments = parse_compound_slide(n["RawContent"])
+            if n["Type"] == 1:
+                slide_shape, slide_waypoints, slide_segments = parse_slide(n["RawContent"])
+            else:
+                slide_shape = slide_waypoints = slide_segments = None
             notes.append(
                 Note(
                     time=time,
